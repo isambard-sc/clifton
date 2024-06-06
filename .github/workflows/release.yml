@@ -1,0 +1,147 @@
+# SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
+# SPDX-License-Identifier: MIT
+
+name: Build release
+run-name: Build release${{ inputs.version && format(' {0}', inputs.version) || '' }}${{ inputs.dryrun && format(' (dry run)') || '' }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The new version, can be "patch", "minor", "major", a valid semver string or empty
+        type: string
+        default: ""
+      dryrun:
+        description: Only do the build but do not publish the release
+        required: true
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  check-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check version is set for release
+        if: inputs.version == '' && !inputs.dryrun
+        run: |
+          echo "::error::Version must be set if not performing a dry run"
+          exit 1
+      - name: Check version format
+        shell: bash
+        if: ${{ !contains(fromJSON('["major", "minor", "patch"]'), inputs.version) && !inputs.dryrun}}
+        run: |
+          if ! [[ '${{ inputs.version }}' =~ [[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+ ]]; then
+            echo "::error::Verseion string must be a valid semver string"
+            exit 1
+          fi
+  check:
+    needs: check-inputs
+    uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read
+  build-release:
+    name: "Build release ${{ inputs.version }} (${{ matrix.target }})"
+    needs: check
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "x86_64-unknown-linux-gnu"
+            os: "ubuntu-latest"
+            cross: false
+            output: clifton
+            asset-name: clifton-linux-x86_64
+            compress-binary: true
+          - target: "aarch64-unknown-linux-gnu"
+            os: "ubuntu-latest"
+            cross: true
+            output: clifton
+            asset-name: clifton-linux-aarch64
+            compress-binary: true
+          - target: "x86_64-pc-windows-gnu"
+            os: "ubuntu-latest"
+            cross: true
+            output: clifton.exe
+            asset-name: clifton-windows-x86_64
+            compress-binary: true
+          - target: "aarch64-apple-darwin"
+            os: "macOS-latest"
+            cross: false
+            output: clifton
+            asset-name: clifton-macos-aarch64
+            compress-binary: false
+          - target: "x86_64-apple-darwin"
+            os: "macOS-latest"
+            cross: true
+            output: clifton
+            asset-name: clifton-macos-x86_64
+            compress-binary: false
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          target: ${{ matrix.target }}
+      - name: Install cargo-edit tool
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit
+      - name: Update version string
+        run: |
+          echo Version input is '${{ inputs.version }}'
+          echo '${{ contains(fromJSON('["major", "minor", "patch"]'), inputs.version) }}'
+          if [ '${{ contains(fromJSON('["major", "minor", "patch"]'), inputs.version) }}' = 'true' ]; then
+            cargo set-version --bump ${{ inputs.version }}
+          elif [ -n '${{ inputs.version }}' ]; then
+            cargo set-version ${{ inputs.version }}
+          else
+            cargo set-version $(git describe)
+          fi
+          git add Cargo.toml
+      - name: Save the version
+        id: get_version
+        run: echo version="$(cargo metadata --format-version 1 --no-deps | jq --raw-output '.packages[0].version')" >> "${GITHUB_OUTPUT}"
+      - name: Install cross
+        uses: taiki-e/install-action@cross
+        if: matrix.cross
+      - name: Build
+        run: cargo build --target=${{ matrix.target }} --release
+        if: ${{ ! matrix.cross }}
+      - name: Build
+        run: cross build --target=${{ matrix.target }} --release
+        if: matrix.cross
+      - name: Rename assets
+        run: cp target/${{ matrix.target }}/release/${{ matrix.output }} ${{ matrix.asset-name }}
+      - name: Compress output
+        run: |
+          wget https://github.com/upx/upx/releases/download/v4.2.4/upx-4.2.4-amd64_linux.tar.xz
+          tar xvf upx-4.2.4-amd64_linux.tar.xz
+          upx-4.2.4-amd64_linux/upx ${{ matrix.asset-name }}
+        if: ${{ matrix.compress-binary }}
+      - name: Store build artefacts
+        if: inputs.dryrun
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset-name }}
+          path: |
+            ${{ matrix.asset-name }}
+      - name: Tag release
+        if: ${{ ! inputs.dryrun }}
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git commit -m "Release ${{ steps.get_version.outputs.version }}"
+          git tag "${{ steps.get_version.outputs.version }}"
+          git push --atomic --tags origin HEAD
+      - name: Release
+        if: ${{ ! inputs.dryrun }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.version }}
+          files: ${{ matrix.asset-name }}

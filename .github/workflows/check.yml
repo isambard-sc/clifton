@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: © 2024 Matt Williams <matt@milliams.com>
+# SPDX-License-Identifier: MIT
+
+name: Check
+
+on: [push, pull_request, workflow_call]
+
+permissions:
+  contents: read
+
+jobs:
+  licenses:
+    name: License REUSE spec
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install reuse
+        run: |
+          python -m venv ~/venv
+          ~/venv/bin/pip install reuse
+      - name: Check REUSE spec
+        run: ~/venv/bin/reuse lint
+  code-checks:
+    name: Tests and lints
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "x86_64-unknown-linux-gnu"
+            os: "ubuntu-latest"
+            cross: false
+          - target: "aarch64-unknown-linux-gnu"
+            os: "ubuntu-latest"
+            cross: true
+          - target: "x86_64-pc-windows-gnu"
+            os: "ubuntu-latest"
+            cross: true
+          - target: "aarch64-apple-darwin"
+            os: "macOS-latest"
+            cross: false
+          - target: "x86_64-apple-darwin"
+            os: "macOS-latest"
+            cross: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+          components: clippy, rustfmt
+      - name: Install cross
+        uses: taiki-e/install-action@cross
+        if: matrix.cross
+      - name: Check formatting
+        run: cargo fmt --check
+      - name: Linting
+        run: cargo clippy
+      - name: Build
+        run: cargo build --target=${{ matrix.target }}
+        if: ${{ ! matrix.cross }}
+      - name: Build
+        run: cross build --target=${{ matrix.target }}
+        if: matrix.cross
