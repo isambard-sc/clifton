@@ -1,0 +1,88 @@
+# SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
+# SPDX-License-Identifier: MIT
+
+name: Build artefacts
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  build-release:
+    name: "Build release (${{ matrix.target }})"
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: "x86_64-unknown-linux-gnu"
+            os: "ubuntu-latest"
+            cross: false
+            output: clifton
+            asset-name: clifton-linux-x86_64
+            compress-binary: true
+          - target: "aarch64-unknown-linux-gnu"
+            os: "ubuntu-latest"
+            cross: true
+            output: clifton
+            asset-name: clifton-linux-aarch64
+            compress-binary: true
+          - target: "x86_64-pc-windows-gnu"
+            os: "ubuntu-latest"
+            cross: true
+            output: clifton.exe
+            asset-name: clifton-windows-x86_64
+            compress-binary: true
+          - target: "aarch64-apple-darwin"
+            os: "macOS-latest"
+            cross: false
+            output: clifton
+            asset-name: clifton-macos-aarch64
+            compress-binary: false
+          - target: "x86_64-apple-darwin"
+            os: "macOS-latest"
+            cross: true
+            output: clifton
+            asset-name: clifton-macos-x86_64
+            compress-binary: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || '' }}
+          fetch-depth: 0  # This is needed so that git-describe works properly to set the version
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+      - name: Install cross
+        uses: taiki-e/install-action@cross
+        if: matrix.cross
+      - name: Build
+        run: cargo build --target=${{ matrix.target }} --release
+        if: ${{ ! matrix.cross }}
+      - name: Build
+        run: cross build --target=${{ matrix.target }} --release
+        if: matrix.cross
+      - name: Rename assets
+        run: cp target/${{ matrix.target }}/release/${{ matrix.output }} ${{ matrix.asset-name }}
+      - name: Compress output
+        run: |
+          upx_ver="4.2.4"
+          wget "https://github.com/upx/upx/releases/download/v${upx_ver}/upx-${upx_ver}-amd64_linux.tar.xz"
+          tar xvf "upx-${upx_ver}-amd64_linux.tar.xz"
+          upx-${upx_ver}-amd64_linux/upx ${{ matrix.asset-name }}
+        if: ${{ matrix.compress-binary }}
+      - name: Store build artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset-name }}
+          path: |
+            ${{ matrix.asset-name }}

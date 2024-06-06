@@ -1,0 +1,153 @@
+# SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
+# SPDX-License-Identifier: MIT
+
+name: Release
+run-name: Release - ${{ inputs.version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The new version, can be "patch", "minor", "major", or a valid semver string
+        type: string
+        required: true
+
+concurrency:
+  group: ${{ github.workflow }}
+
+permissions: {}
+
+jobs:
+  check-inputs:
+    name: Check inputs
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check release branch
+        if: github.ref_name != 'master'
+        run: |
+          echo "::error::Release must be made on the master branch"
+          exit 1
+      - name: Check version format
+        shell: bash
+        if: ${{ !contains(fromJSON('["major", "minor", "patch"]'), inputs.version) }}
+        run: |
+          if ! [[ '${{ inputs.version }}' =~ [[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+ ]]; then
+            echo "::error::Verseion string must be a valid semver string"
+            exit 1
+          fi
+
+  check:
+    name: Check
+    needs: check-inputs
+    uses: ./.github/workflows/check.yml
+    with:
+      ref: "${{ github.sha }}"
+    permissions:
+      contents: read
+
+  tag-release:
+    name: Tag release
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      ref: "${{ steps.get_version.outputs.version }}"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}  # Use ref here since we must commit on a branch
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          target: ${{ matrix.target }}
+      - name: Install cargo-edit tool
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-edit
+      - name: Update version string
+        run: |
+          echo Version input is '${{ inputs.version }}'
+          if [ '${{ contains(fromJSON('["major", "minor", "patch"]'), inputs.version) }}' = 'true' ]; then
+            echo 'Setting based on update spec'
+            cargo set-version --bump ${{ inputs.version }}
+          elif [ -n '${{ inputs.version }}' ]; then
+            echo 'Updating based on explicit version'
+            cargo set-version ${{ inputs.version }}
+          fi
+          git add Cargo.toml Cargo.lock
+      - name: Save the version
+        id: get_version
+        run: echo version="$(cargo metadata --format-version 1 --no-deps | jq --raw-output '.packages[0].version')" >> "${GITHUB_OUTPUT}"
+      - name: Tag release
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git commit -m "Release ${{ steps.get_version.outputs.version }}"
+          git tag -a -m "Release ${{ steps.get_version.outputs.version }}" "${{ steps.get_version.outputs.version }}"
+          git push --atomic --tags origin HEAD
+
+  build-release:
+    name: "Build release (${{ matrix.target }})"
+    needs: tag-release
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.tag-release.outputs.ref }}
+    permissions:
+      contents: read
+
+  attest:
+    name: Attest
+    needs: build-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-sbom
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-sbom
+      - name: Generate SBOM
+        run: cargo sbom --output-format=spdx_json_2_3 > sbom.spdx.json
+      - name: Fetch release artefacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: clifton-*
+          merge-multiple: true
+      - name: Attest SBOM
+        uses: actions/attest-sbom@v1
+        with:
+          subject-path: clifton-*
+          sbom-path: sbom.spdx.json
+      - name: Store SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom.spdx.json
+          path: sbom.spdx.json
+
+  make-release:
+    name: Make release ${{ needs.tag-release.outputs.ref }}
+    needs: [build-release, tag-release, attest]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Fetch release artefacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: clifton-*
+          merge-multiple: true
+      - run: pwd
+      - run: ls -l
+      - run: ls "${GITHUB_WORKSPACE}"
+      - run: tree
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.tag-release.outputs.ref }}
+          files: clifton-*
