@@ -21,7 +21,7 @@ serde_json = { version = "1.0.117", default-features = false }
 ssh-key = { version = "0.6.6", default-features = false, features = ["std"] }
 ssh2-config = { version = "0.2.3", default-features = false }
 toml = { version = "0.8.14", default-features = false, features = ["parse"] }
-url = { version = "2.5.0", default-features = false, features = ["serde"] }
+url = { version = "2.5.2", default-features = false, features = ["serde"] }
 webbrowser = { version = "1.0.1", default-features = false }
 
 [profile.release]
