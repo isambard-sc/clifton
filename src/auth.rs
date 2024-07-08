@@ -76,11 +76,14 @@ pub fn get_keycloak_token(
 
 /// Using the token from KeyCloak, ask Waldur for an API token
 pub fn get_waldur_token(waldur_api_url: &Url, kc_token: AccessToken) -> Result<String> {
+    let url = format!("{}api-auth/keycloak", waldur_api_url);
     let r = reqwest::blocking::Client::new()
-        .get(format!("{}/api-auth/keycloak", waldur_api_url))
+        .get(url)
         .header("Accept", "application/json")
-        .header("Authorization", format!("Bearer: {}", kc_token.secret()))
+        .header(
+            reqwest::header::AUTHORIZATION,
+            format!("Bearer {}", kc_token.secret()),
+        )
         .send()?;
-
     Ok(r.json::<Token>()?.token)
 }

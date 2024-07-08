@@ -27,7 +27,7 @@ impl Config {
             .expect("Default KeyCloak path does not parse")
     }
     fn default_waldur_api_url() -> Url {
-        "https://portal.isambard.ac.uk/"
+        "https://portal-api.isambard.ac.uk/"
             .parse()
             .expect("Default Waldur API path does not parse")
     }
