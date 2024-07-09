@@ -50,7 +50,7 @@ pub fn get_keycloak_token(
         .context("Did not receive complete verification URI from server.")?
         .secret();
     if open_webpage {
-        webbrowser::open(&verification_uri_complete)
+        webbrowser::open(verification_uri_complete)
             .ok()
             .context("Opening web browser")?;
     }
@@ -58,7 +58,7 @@ pub fn get_keycloak_token(
         "Open this URL in your browser:\n{}",
         &verification_uri_complete
     );
-    let qr = QrCode::new(&verification_uri_complete)?
+    let qr = QrCode::new(verification_uri_complete)?
         .render::<unicode::Dense1x2>()
         .light_color(unicode::Dense1x2::Light)
         .dark_color(unicode::Dense1x2::Dark)
