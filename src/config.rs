@@ -15,9 +15,9 @@ pub struct Config {
     /// The client ID in KeyCloak
     #[serde(default = "Config::default_client_id")]
     pub client_id: String,
-    /// The default location of the public key to use
-    #[serde(default = "Config::default_public_key")]
-    pub public_key: std::path::PathBuf,
+    /// The default location of the identity to use
+    #[serde(default = "Config::default_identity")]
+    pub identity: std::path::PathBuf,
 }
 
 impl Config {
@@ -34,11 +34,11 @@ impl Config {
     fn default_client_id() -> String {
         "clifton".to_string()
     }
-    fn default_public_key() -> std::path::PathBuf {
-        // TODO Check for existence of different kays and fall back.
+    fn default_identity() -> std::path::PathBuf {
+        // TODO Check for existence of different keys and fall back.
         dirs::home_dir()
             .expect("Cannot locate home directory")
             .join(".ssh")
-            .join("id_ed25519.pub")
+            .join("id_ed25519")
     }
 }

@@ -50,9 +50,9 @@ struct Args {
     )]
     config_file: Option<std::path::PathBuf>,
 
-    /// The SSH public key to use
-    #[arg(short = 'k', long)]
-    public_key: Option<std::path::PathBuf>,
+    /// The SSH identity to use
+    #[arg(short = 'i', long)]
+    identity: Option<std::path::PathBuf>,
 
     #[command(subcommand)]
     command: Option<Commands>,
@@ -97,9 +97,9 @@ fn default_config_path() -> std::path::PathBuf {
 }
 
 /// Waldur uses old MD5 fingerprints so we must convert to that format
-pub fn fingerprint_md5(key: &ssh_key::PublicKey) -> Result<String> {
+pub fn fingerprint_md5(key: &ssh_key::PrivateKey) -> Result<String> {
     let mut sh = md5::Md5::default();
-    sh.update(key.to_bytes()?);
+    sh.update(key.public_key().to_bytes()?);
     let md5: Vec<String> = sh.finalize().iter().map(|n| format!("{:02x}", n)).collect();
     Ok(md5.join(":"))
 }
@@ -130,27 +130,27 @@ fn main() -> Result<()> {
     };
 
     // Load the user's public key
-    let public_key_file = args.public_key.as_ref().unwrap_or(&config.public_key);
-    if !public_key_file.is_file() {
+    let identity_file = args.identity.as_ref().unwrap_or(&config.identity);
+    if !identity_file.is_file() {
         anyhow::bail!(format!(
-            "Public key file {} not found",
-            &public_key_file.display()
+            "Identity file {} not found",
+            &identity_file.display()
         ))
     }
-    let public_key = ssh_key::PublicKey::read_openssh_file(public_key_file.as_path())
-        .context("Could not read SSH public key")?;
+    let identity = ssh_key::PrivateKey::read_openssh_file(identity_file.as_path())
+        .context("Could not read SSH identity file")?;
 
     // Set up cache
     let cache_dir = dirs::cache_dir().unwrap_or(".".parse()?).join("clifton");
-    let cert_file_name = format!(
-        "{}-{}-cert.pub",
-        public_key_file
-            .file_stem()
-            .and_then(|v| v.to_str())
-            .unwrap_or("id"),
-        &args.project
+    let cert_file_path = identity_file.with_file_name(
+        [
+            identity_file
+                .file_name()
+                .context("Could not understand identity file name")?,
+            std::ffi::OsStr::new("-cert.pub"),
+        ]
+        .join(std::ffi::OsStr::new("")),
     );
-    let cert_file_path = cache_dir.join(cert_file_name);
     let cert_details_file_path = cache_dir.join(format!("{}.json", &args.project));
 
     match &args.command {
@@ -169,18 +169,18 @@ fn main() -> Result<()> {
                 .ok()
                 .and_then(|api_key| {
                     // If it's there, try to use it
-                    get_cert(&public_key, &config.waldur_api_url, &args.project, &api_key).ok()
+                    get_cert(&identity, &config.waldur_api_url, &args.project, &api_key).ok()
                 })
                 .map_or_else(
                     || {
                         // If the certificate could not be fetched, renew the API token
                         let api_key = get_api_key(&config, &key_cache_path)?;
-                        get_cert(&public_key, &config.waldur_api_url, &args.project, &api_key)
+                        get_cert(&identity, &config.waldur_api_url, &args.project, &api_key)
                     },
                     Ok,
                 )
                 .context("Could not get certificate.")?;
-
+            // TODO set permissions
             std::fs::write(&cert_file_path, format!("{}\n", &cert.certificate))
                 .context("Could not write certificate file.")?;
             std::fs::write(&cert_details_file_path, serde_json::to_string(&cert)?)
@@ -195,7 +195,7 @@ fn main() -> Result<()> {
                 .context("Could not parse certificate details cache.")?;
             let host_alias = format!("{}.{}", &args.project, "ai.isambard"); // TODO read from portal
             let host_config = format!(
-                "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n",
+                "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n\tForwardAgent yes\n\tAddKeysToAgent yes\n",
                 &host_alias,
                 f.hostname,
                 f.proxy_jump,
@@ -209,6 +209,7 @@ fn main() -> Result<()> {
             );
             match command {
                 Some(SshConfigCommands::Write { ssh_config }) => {
+                    // TODO See if already present and update if so
                     let text_for_file = "\n".to_string() + &host_config;
                     // TODO Work for non-existent config file
                     std::fs::OpenOptions::new()
@@ -267,13 +268,14 @@ fn get_api_key(
 
 /// Get a signed certificate from Waldur
 fn get_cert(
-    public_key: &ssh_key::PublicKey,
+    identity: &ssh_key::PrivateKey,
     api_url: &url::Url,
     project: &String,
     token: &String,
 ) -> Result<WaldurCertificateSignResponse> {
-    let fingerprint = fingerprint_md5(public_key)
-        .context("Could not calculate the MD5 hash of the fingerprint")?;
+    let fingerprint =
+        fingerprint_md5(identity).context("Could not calculate the MD5 hash of the fingerprint")?;
+    dbg!(&fingerprint);
     let project_r = reqwest::blocking::Client::new()
         .get(format!("{}api/projects/?short_name={}", api_url, project))
         // .get(format!("{}api/projects/", api_url))
