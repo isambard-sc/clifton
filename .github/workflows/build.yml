@@ -40,7 +40,7 @@ jobs:
             cross: true
             output: clifton.exe
             asset-name: clifton-windows-x86_64
-            compress-binary: true
+            compress-binary: false
           - target: "aarch64-apple-darwin"
             os: "macOS-latest"
             cross: false
