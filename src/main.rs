@@ -132,7 +132,10 @@ fn main() -> Result<()> {
     // Load the user's public key
     let public_key_file = args.public_key.as_ref().unwrap_or(&config.public_key);
     if !public_key_file.is_file() {
-        anyhow::bail!("Public key file not found")
+        anyhow::bail!(format!(
+            "Public key file {} not found",
+            &public_key_file.display()
+        ))
     }
     let public_key = ssh_key::PublicKey::read_openssh_file(public_key_file.as_path())
         .context("Could not read SSH public key")?;
