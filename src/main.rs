@@ -22,6 +22,8 @@ struct WaldurCertificateSignResponse {
     certificate: String,
     #[serde(with = "http_serde::authority")]
     hostname: http::uri::Authority,
+    #[serde(with = "http_serde::authority")]
+    proxy_jump: http::uri::Authority,
 }
 
 #[derive(Deserialize)]
@@ -188,11 +190,12 @@ fn main() -> Result<()> {
                     "Could not read certificate details cache. Have you run `clifton auth`?",
                 )?)
                 .context("Could not parse certificate details cache.")?;
-            let host_alias = format!("{}.{}", &args.project, "ai.isambard");
+            let host_alias = format!("{}.{}", &args.project, "ai.isambard"); // TODO read from portal
             let host_config = format!(
-                "Host {}\n\tHostname {}\n\tUser {}\n\tCertificateFile {}\n",
+                "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n",
                 &host_alias,
                 f.hostname,
+                f.proxy_jump,
                 ssh_key::Certificate::read_file(&cert_file_path)
                     .context(format!(
                         "Cannot read certificate file at {}. Have you run `clifton auth`?",
