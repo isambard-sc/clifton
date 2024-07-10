@@ -17,6 +17,10 @@ pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
+fn version() -> &'static str {
+    built_info::GIT_VERSION.expect("Could not find version.")
+}
+
 #[derive(Deserialize, Serialize)]
 struct WaldurCertificateSignResponse {
     certificate: String,
@@ -24,23 +28,21 @@ struct WaldurCertificateSignResponse {
     hostname: http::uri::Authority,
     #[serde(with = "http_serde::authority")]
     proxy_jump: http::uri::Authority,
+    service: String,
+    projects: Vec<ProjectDetails>,
+    version: u32,
 }
 
-#[derive(Deserialize)]
-struct WaldurProjectResponse {
-    url: String,
-    name: String,
+#[derive(Deserialize, Serialize)]
+struct ProjectDetails {
     short_name: String,
+    username: String,
 }
 
 #[derive(Parser)]
-#[command(version = built_info::GIT_VERSION.expect("Could not find version."), about, long_about = None)]
+#[command(version = version(), about, long_about = None)]
 /// Connect to Isambard
 struct Args {
-    /// Project short name
-    #[arg(long)]
-    project: String,
-
     #[arg(
         long,
         help=format!(
@@ -151,7 +153,7 @@ fn main() -> Result<()> {
         ]
         .join(std::ffi::OsStr::new("")),
     );
-    let cert_details_file_path = cache_dir.join(format!("{}.json", &args.project));
+    let cert_details_file_path = cache_dir.join(format!("cert.json"));
 
     match &args.command {
         Some(Commands::Auth {}) => {
@@ -169,13 +171,13 @@ fn main() -> Result<()> {
                 .ok()
                 .and_then(|api_key| {
                     // If it's there, try to use it
-                    get_cert(&identity, &config.waldur_api_url, &args.project, &api_key).ok()
+                    get_cert(&identity, &config.waldur_api_url, &api_key).ok()
                 })
                 .map_or_else(
                     || {
                         // If the certificate could not be fetched, renew the API token
                         let api_key = get_api_key(&config, &key_cache_path)?;
-                        get_cert(&identity, &config.waldur_api_url, &args.project, &api_key)
+                        get_cert(&identity, &config.waldur_api_url, &api_key)
                     },
                     Ok,
                 )
@@ -193,42 +195,47 @@ fn main() -> Result<()> {
                     "Could not read certificate details cache. Have you run `clifton auth`?",
                 )?)
                 .context("Could not parse certificate details cache.")?;
-            let host_alias = format!("{}.{}", &args.project, "ai.isambard"); // TODO read from portal
-            let host_config = format!(
-                "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n\tForwardAgent yes\n\tAddKeysToAgent yes\n",
-                &host_alias,
-                f.hostname,
-                f.proxy_jump,
-                ssh_key::Certificate::read_file(&cert_file_path)
-                    .context(format!(
-                        "Cannot read certificate file at {}. Have you run `clifton auth`?",
-                        &cert_file_path.display()
-                    ))?
-                    .valid_principals()[0],
-                &cert_file_path.display(),
-            );
+            let configs: Result<Vec<_>> = f.projects.iter().map(|p| {
+                let host_alias = format!("{}.{}", &p.short_name, &f.service);
+                let host_config = format!(
+                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n\tForwardAgent yes\n\tAddKeysToAgent yes\n",
+                    &host_alias,
+                    f.hostname,
+                    f.proxy_jump,
+                    p.username,
+                    &cert_file_path.display(),
+                );
+                Ok(host_config)
+            }).collect();
+            let configs = configs?;
+            let print_config = configs.join("\n");
+            let file_config = configs.join("\n");
             match command {
                 Some(SshConfigCommands::Write { ssh_config }) => {
                     // TODO See if already present and update if so
-                    let text_for_file = "\n".to_string() + &host_config;
-                    // TODO Work for non-existent config file
+                    let text_for_file = "\n".to_string() + &file_config;
                     std::fs::OpenOptions::new()
+                        .create(true)
                         .append(true)
                         .open(ssh_config)
                         .context("Could not open SSH config file for writing.")?
                         .write_all(text_for_file.as_bytes())
                         .context("Could not write to SSH config file.")?;
                     println!(
-                        "Written SSH config to {} with Host \"{}\"",
+                        "Wrote SSH config to {} with hosts \"{}\"",
                         &ssh_config.display(),
-                        &host_alias
+                        &f.projects
+                            .iter()
+                            .map(|p| format!("{}.{}", &p.short_name, &f.service))
+                            .collect::<Vec<_>>()
+                            .join("\", \""),
                     );
                 }
                 None => {
                     eprintln!("Copy this configuration into your SSH config file");
                     eprintln!("or use `clifton ssh-config write`.");
                     eprintln!();
-                    println!("{}", host_config);
+                    println!("{}", print_config);
                 }
             }
         }
@@ -270,31 +277,16 @@ fn get_api_key(
 fn get_cert(
     identity: &ssh_key::PrivateKey,
     api_url: &url::Url,
-    project: &String,
     token: &String,
 ) -> Result<WaldurCertificateSignResponse> {
     let fingerprint =
         fingerprint_md5(identity).context("Could not calculate the MD5 hash of the fingerprint")?;
-    let project_r = reqwest::blocking::Client::new()
-        .get(format!("{}api/projects/?short_name={}", api_url, project))
-        // .get(format!("{}api/projects/", api_url))
-        .header("Accept", "application/json")
-        .header("Authorization", format!("Token {}", token))
-        .send()
-        .context("Could not get project details from Waldur.")?;
-    let projects = project_r
-        .json::<Vec<WaldurProjectResponse>>()
-        .context("Could not parse projects response from Waldur.")?;
-    let project = &projects
-        .first()
-        .context("Did not return a matching project.")?;
-    println!(
-        "Retrieving key for project \"{}\" ({})",
-        &project.name, &project.short_name
-    );
     let cert_r = reqwest::blocking::Client::new()
-        .get(format!("{}cert", &project.url))
-        .query(&[("fingerprint", fingerprint)])
+        .get(format!("{}api/users/me/cert", &api_url))
+        .query(&[
+            ("fingerprint", fingerprint),
+            ("clifton-version", version().to_string()),
+        ])
         .header("Accept", "application/json")
         .header("Authorization", format!("Token {}", token))
         .send()
