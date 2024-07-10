@@ -275,7 +275,6 @@ fn get_cert(
 ) -> Result<WaldurCertificateSignResponse> {
     let fingerprint =
         fingerprint_md5(identity).context("Could not calculate the MD5 hash of the fingerprint")?;
-    dbg!(&fingerprint);
     let project_r = reqwest::blocking::Client::new()
         .get(format!("{}api/projects/?short_name={}", api_url, project))
         // .get(format!("{}api/projects/", api_url))
