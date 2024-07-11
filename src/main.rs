@@ -102,9 +102,9 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum SshConfigCommands {
-    /// Append the config to the SSH config (note: will not update any existing or old configs)
-    Append {
-        /// The SSH config file to write to
+    /// Write the config to an SSH config file which is included in the main one
+    Write {
+        /// The main SSH config file to write to
         #[arg(
             long,
             default_value_os_t = dirs::home_dir()
@@ -241,7 +241,7 @@ fn main() -> Result<()> {
                     identity_file.clone(),
                 ))?,
             )
-            .context("Could not write certificate details cache.")?; // TODO write identity file used
+            .context("Could not write certificate details cache.")?;
             println!("Certificate file written to {}", &cert_file_path.display());
         }
         Some(Commands::SshConfig { command }) => {
@@ -251,52 +251,60 @@ fn main() -> Result<()> {
                 )?,
             )
             .context("Could not parse certificate details cache. Try rerunning `clifton auth`.")?;
-            let configs: Result<Vec<_>> = f.projects.iter().map(|p| {
+            let jump_alias = format!("jump.{}", &f.service);
+            let jump_config = format!(
+                "Host {}\n\tHostname {}\n\tIdentityFile {}\n\tCertificateFile {}\n\n",
+                &jump_alias,
+                f.proxy_jump,
+                f.identity.display(),
+                format!("{}-cert.pub", f.identity.display()),
+            );
+            let alias_configs = f.projects.iter().map(|p| {
                 let host_alias = format!("{}.{}", &p.short_name, &f.service);
                 let host_config = format!(
-                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n\tIdentityFile {}\n\tAddKeysToAgent yes\n",
+                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tIdentityFile {}\n\tcertificateFile {}\n\tAddKeysToAgent yes\n",
                     &host_alias,
                     f.hostname,
-                    f.proxy_jump,
+                    &jump_alias,
                     p.username,
-                    format!("{}-cert.pub", f.identity.display()),
                     f.identity.display(),
+                    format!("{}-cert.pub", f.identity.display()),
                 );
                 Ok(host_config)
-            }).collect();
-            let configs = configs?;
-            let print_config = configs.join("\n");
-            let file_config = configs
-                .iter()
-                .map(|a| format!("# CLIFTON MANAGED START\n{}# CLIFTON MANAGED END\n", a))
-                .collect::<Vec<_>>()
-                .join("\n");
+            }).collect::<Result<Vec<_>>>()?;
+            let config = jump_config + &alias_configs.join("\n");
             match command {
-                Some(SshConfigCommands::Append { ssh_config }) => {
-                    // TODO See if already present and update if so
-                    let text_for_file = "\n".to_string() + &file_config;
-                    std::fs::OpenOptions::new()
-                        .create(true)
-                        .append(true)
-                        .open(ssh_config)
-                        .context("Could not open SSH config file for writing.")?
-                        .write_all(text_for_file.as_bytes())
-                        .context("Could not write to SSH config file.")?;
+                Some(SshConfigCommands::Write { ssh_config }) => {
+                    let current_config = std::fs::read_to_string(ssh_config).context(format!(
+                        "Cannot read SSH config file {}",
+                        ssh_config.display()
+                    ))?;
+                    let clifton_ssh_config_file = ssh_config.with_file_name("config_clifton");
+                    let include_line = format!("Include {}\n", clifton_ssh_config_file.display());
+                    if !current_config.contains(&include_line) {
+                        let new_config = include_line + &current_config;
+                        std::fs::write(ssh_config, new_config)
+                            .context("Could not write main SSH config file.")?
+                    }
+                    let text_for_file = "# CLIFTON MANAGED\n".to_string() + &config;
+                    std::fs::write(&clifton_ssh_config_file, text_for_file)
+                        .context("Could not write clifon SSH config file.")?;
                     println!(
-                        "Wrote SSH config to {} with hosts \"{}\"",
+                        "Wrote SSH config to {} and ensured {} includes it\nfor host aliases: \n - {}",
+                        &clifton_ssh_config_file.display(),
                         &ssh_config.display(),
                         &f.projects
                             .iter()
                             .map(|p| format!("{}.{}", &p.short_name, &f.service))
                             .collect::<Vec<_>>()
-                            .join("\", \""),
+                            .join("\n - "),
                     );
                 }
                 None => {
                     eprintln!("Copy this configuration into your SSH config file");
-                    eprintln!("or use `clifton ssh-config append`.");
+                    eprintln!("or use `clifton ssh-config write`.");
                     eprintln!();
-                    println!("{}", print_config);
+                    println!("{}", &config);
                 }
             }
         }
