@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
 // SPDX-License-Identifier: MIT
 
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 #[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
@@ -96,8 +96,12 @@ enum Commands {
         #[command(subcommand)]
         command: Option<SshConfigCommands>,
     },
-    /// Display the SSH command line to use for each project
-    SshCommand {},
+    /// Display the SSH command line to use for each project.
+    /// Note that the given command may not work for non-standard identity file locations.
+    SshCommand {
+        /// fsdf
+        project: String,
+    },
 }
 
 #[derive(Subcommand)]
@@ -308,13 +312,13 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Some(Commands::SshCommand {}) => {
+        Some(Commands::SshCommand { project }) => {
             let f: CertificateConfigCache =
                 serde_json::from_str(&std::fs::read_to_string(&cert_details_file_path).context(
                     "Could not read certificate details cache. Have you run `clifton auth`?",
                 )?)
                 .context("Could not parse certificate details cache.")?;
-            for p in &f.projects {
+            if let Some(p) = &f.projects.iter().find(|p| &p.short_name == project) {
                 let line = format!(
                     "ssh -J '%r@{}' -o 'CertificateFile {}' -i '{}' -o 'AddKeysToAgent yes' {}@{}",
                     &f.proxy_jump,
@@ -323,7 +327,15 @@ fn main() -> Result<()> {
                     &p.username,
                     &f.hostname,
                 );
+                if std::io::stdout().is_terminal() {
+                    eprintln!("Note that if using a non-standard identity file location, the given SSH command may not work.");
+                }
                 println!("{}", line);
+            } else {
+                anyhow::bail!(format!(
+                    "Project {} does not match any currently authorised for. Try rerunning `clifton auth`.",
+                    project
+                ))
             }
         }
         None => Args::command().print_help()?,
