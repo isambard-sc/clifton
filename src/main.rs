@@ -257,22 +257,22 @@ fn main() -> Result<()> {
             .context("Could not parse certificate details cache. Try rerunning `clifton auth`.")?;
             let jump_alias = format!("jump.{}", &f.service);
             let jump_config = format!(
-                "Host {}\n\tHostname {}\n\tIdentityFile {}\n\tCertificateFile {}\n\n",
+                "Host {}\n\tHostname {}\n\tIdentityFile {}\n\tCertificateFile {}-cert.pub\n\n",
                 &jump_alias,
                 f.proxy_jump,
                 f.identity.display(),
-                format!("{}-cert.pub", f.identity.display()),
+                f.identity.display(),
             );
             let alias_configs = f.projects.iter().map(|p| {
                 let host_alias = format!("{}.{}", &p.short_name, &f.service);
                 let host_config = format!(
-                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tIdentityFile {}\n\tcertificateFile {}\n\tAddKeysToAgent yes\n",
+                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tIdentityFile {}\n\tCertificateFile {}-cert.pub\n\tAddKeysToAgent yes\n",
                     &host_alias,
                     f.hostname,
                     &jump_alias,
                     p.username,
                     f.identity.display(),
-                    format!("{}-cert.pub", f.identity.display()),
+                    f.identity.display(),
                 );
                 Ok(host_config)
             }).collect::<Result<Vec<_>>>()?;
@@ -320,14 +320,16 @@ fn main() -> Result<()> {
                 .context("Could not parse certificate details cache.")?;
             if let Some(p) = &f.projects.iter().find(|p| &p.short_name == project) {
                 let line = format!(
-                    "ssh -J '%r@{}' -o 'CertificateFile {}' -i '{}' -o 'AddKeysToAgent yes' {}@{}",
+                    "ssh -J '%r@{}' -i '{}' -o 'CertificateFile {}-cert.pub' -o 'AddKeysToAgent yes' {}@{}",
                     &f.proxy_jump,
-                    format!("{}-cert.pub", f.identity.display()),
+                    f.identity.display(),
                     f.identity.display(),
                     &p.username,
                     &f.hostname,
                 );
                 if std::io::stdout().is_terminal() {
+                    // OpenSSH does not seem to offer the certificate to the jump host
+                    // unless it's in the default search list.
                     eprintln!("Note that if using a non-standard identity file location, the given SSH command may not work.");
                 }
                 println!("{}", line);
