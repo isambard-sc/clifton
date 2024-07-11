@@ -185,13 +185,28 @@ fn main() -> Result<()> {
                     Ok,
                 )
                 .context("Could not get certificate.")?;
-            let projects = &cert
-                .projects
-                .iter()
-                .map(|p| p.short_name.clone())
-                .collect::<Vec<_>>()
-                .join(" ");
-            println!("Authenticated as {} for projects: {}", &cert.user, projects);
+            match cert.projects.as_slice() {
+                [p] => {
+                    println!(
+                        "Authenticated as {} for project {}\n",
+                        &cert.user, p.short_name
+                    );
+                }
+                projects @ [_, ..] => {
+                    let projects = projects
+                        .iter()
+                        .map(|p| format!(" - {}", &p.short_name))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    println!(
+                        "Authenticated as {} for projects:\n{}\n",
+                        &cert.user, projects
+                    );
+                }
+                [] => {
+                    anyhow::bail!("Did not authenticate with any projects.")
+                }
+            }
             std::fs::write(&cert_file_path, format!("{}\n", &cert.certificate))
                 .context("Could not write certificate file.")?;
             std::fs::write(&cert_details_file_path, serde_json::to_string(&cert)?)
