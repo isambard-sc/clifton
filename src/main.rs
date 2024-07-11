@@ -21,7 +21,7 @@ fn version() -> &'static str {
     built_info::GIT_VERSION.expect("Could not find version.")
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 struct WaldurCertificateSignResponse {
     certificate: String,
     #[serde(with = "http_serde::authority")]
@@ -38,6 +38,31 @@ struct WaldurCertificateSignResponse {
 struct ProjectDetails {
     short_name: String,
     username: String,
+}
+
+#[derive(Deserialize, Serialize)]
+struct CertificateConfigCache {
+    #[serde(with = "http_serde::authority")]
+    hostname: http::uri::Authority,
+    #[serde(with = "http_serde::authority")]
+    proxy_jump: http::uri::Authority,
+    service: String,
+    projects: Vec<ProjectDetails>,
+    user: String,
+    identity: std::path::PathBuf,
+}
+
+impl CertificateConfigCache {
+    fn from_reponse(r: WaldurCertificateSignResponse, identity: std::path::PathBuf) -> Self {
+        CertificateConfigCache {
+            hostname: r.hostname,
+            proxy_jump: r.proxy_jump,
+            service: r.service,
+            projects: r.projects,
+            user: r.user,
+            identity,
+        }
+    }
 }
 
 #[derive(Parser)]
@@ -147,19 +172,19 @@ fn main() -> Result<()> {
 
     // Set up cache
     let cache_dir = dirs::cache_dir().unwrap_or(".".parse()?).join("clifton");
-    let cert_file_path = identity_file.with_file_name(
-        [
-            identity_file
-                .file_name()
-                .context("Could not understand identity file name")?,
-            std::ffi::OsStr::new("-cert.pub"),
-        ]
-        .join(std::ffi::OsStr::new("")),
-    );
     let cert_details_file_path = cache_dir.join("cert.json");
 
     match &args.command {
         Some(Commands::Auth {}) => {
+            let cert_file_path = identity_file.with_file_name(
+                [
+                    identity_file
+                        .file_name()
+                        .context("Could not understand identity file name")?,
+                    std::ffi::OsStr::new("-cert.pub"),
+                ]
+                .join(std::ffi::OsStr::new("")),
+            );
             match cache_dir.try_exists() {
                 Ok(true) => (),
                 Ok(false) => std::fs::create_dir_all(&cache_dir)
@@ -209,25 +234,33 @@ fn main() -> Result<()> {
             }
             std::fs::write(&cert_file_path, format!("{}\n", &cert.certificate))
                 .context("Could not write certificate file.")?;
-            std::fs::write(&cert_details_file_path, serde_json::to_string(&cert)?)
-                .context("Could not write certificate details cache.")?;
+            std::fs::write(
+                &cert_details_file_path,
+                serde_json::to_string(&CertificateConfigCache::from_reponse(
+                    cert,
+                    identity_file.clone(),
+                ))?,
+            )
+            .context("Could not write certificate details cache.")?; // TODO write identity file used
             println!("Certificate file written to {}", &cert_file_path.display());
         }
         Some(Commands::SshConfig { command }) => {
-            let f: WaldurCertificateSignResponse =
-                serde_json::from_str(&std::fs::read_to_string(&cert_details_file_path).context(
+            let f: CertificateConfigCache = serde_json::from_str(
+                &std::fs::read_to_string(&cert_details_file_path).context(
                     "Could not read certificate details cache. Have you run `clifton auth`?",
-                )?)
-                .context("Could not parse certificate details cache.")?;
+                )?,
+            )
+            .context("Could not parse certificate details cache. Try rerunning `clifton auth`.")?;
             let configs: Result<Vec<_>> = f.projects.iter().map(|p| {
                 let host_alias = format!("{}.{}", &p.short_name, &f.service);
                 let host_config = format!(
-                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n\tAddKeysToAgent yes\n",
+                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n\tIdentityFile {}\n\tAddKeysToAgent yes\n",
                     &host_alias,
                     f.hostname,
                     f.proxy_jump,
                     p.username,
-                    &cert_file_path.display(),
+                    format!("{}-cert.pub", f.identity.display()),
+                    f.identity.display(),
                 );
                 Ok(host_config)
             }).collect();
@@ -268,16 +301,17 @@ fn main() -> Result<()> {
             }
         }
         Some(Commands::SshCommand {}) => {
-            let f: WaldurCertificateSignResponse =
+            let f: CertificateConfigCache =
                 serde_json::from_str(&std::fs::read_to_string(&cert_details_file_path).context(
                     "Could not read certificate details cache. Have you run `clifton auth`?",
                 )?)
                 .context("Could not parse certificate details cache.")?;
             for p in &f.projects {
                 let line = format!(
-                    "ssh -J '%r@{}' -o 'CertificateFile {}' -o 'AddKeysToAgent yes' {}@{}",
+                    "ssh -J '%r@{}' -o 'CertificateFile {}' -i '{}' -o 'AddKeysToAgent yes' {}@{}",
                     &f.proxy_jump,
-                    &cert_file_path.display(),
+                    format!("{}-cert.pub", f.identity.display()),
+                    f.identity.display(),
                     &p.username,
                     &f.hostname,
                 );
