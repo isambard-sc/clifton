@@ -75,8 +75,8 @@ enum Commands {
 
 #[derive(Subcommand)]
 enum SshConfigCommands {
-    /// Write the config to the SSH config
-    Write {
+    /// Append the config to the SSH config (note: will not update any existing or old configs)
+    Append {
         /// The SSH config file to write to
         #[arg(
             long,
@@ -216,9 +216,9 @@ fn main() -> Result<()> {
             }).collect();
             let configs = configs?;
             let print_config = configs.join("\n");
-            let file_config = configs.join("\n");
+            let file_config = configs.join("\n"); // TODO Add "magaged" labels
             match command {
-                Some(SshConfigCommands::Write { ssh_config }) => {
+                Some(SshConfigCommands::Append { ssh_config }) => {
                     // TODO See if already present and update if so
                     let text_for_file = "\n".to_string() + &file_config;
                     std::fs::OpenOptions::new()
