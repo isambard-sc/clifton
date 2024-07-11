@@ -39,7 +39,7 @@ jobs:
             os: "ubuntu-latest"
             cross: true
             output: clifton.exe
-            asset-name: clifton-windows-x86_64
+            asset-name: clifton-windows-x86_64.exe
             compress-binary: false
           - target: "aarch64-apple-darwin"
             os: "macOS-latest"
