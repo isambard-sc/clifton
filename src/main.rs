@@ -156,7 +156,7 @@ fn main() -> Result<()> {
         ]
         .join(std::ffi::OsStr::new("")),
     );
-    let cert_details_file_path = cache_dir.join(format!("cert.json"));
+    let cert_details_file_path = cache_dir.join("cert.json");
 
     match &args.command {
         Some(Commands::Auth {}) => {
@@ -237,7 +237,7 @@ fn main() -> Result<()> {
                 .iter()
                 .map(|a| format!("# CLIFTON MANAGED START\n{}# CLIFTON MANAGED END\n", a))
                 .collect::<Vec<_>>()
-                .join("\n"); // TODO Add "magaged" labels
+                .join("\n");
             match command {
                 Some(SshConfigCommands::Append { ssh_config }) => {
                     // TODO See if already present and update if so
