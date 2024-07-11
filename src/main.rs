@@ -240,7 +240,7 @@ fn main() -> Result<()> {
                 }
                 None => {
                     eprintln!("Copy this configuration into your SSH config file");
-                    eprintln!("or use `clifton ssh-config write`.");
+                    eprintln!("or use `clifton ssh-config append`.");
                     eprintln!();
                     println!("{}", print_config);
                 }
