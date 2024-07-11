@@ -30,6 +30,7 @@ struct WaldurCertificateSignResponse {
     proxy_jump: http::uri::Authority,
     service: String,
     projects: Vec<ProjectDetails>,
+    user: String,
     version: u32,
 }
 
@@ -182,7 +183,13 @@ fn main() -> Result<()> {
                     Ok,
                 )
                 .context("Could not get certificate.")?;
-            // TODO set permissions
+            let projects = &cert
+                .projects
+                .iter()
+                .map(|p| p.short_name.clone())
+                .collect::<Vec<_>>()
+                .join(" ");
+            println!("Authenticated as {} for projects: {}", &cert.user, projects);
             std::fs::write(&cert_file_path, format!("{}\n", &cert.certificate))
                 .context("Could not write certificate file.")?;
             std::fs::write(&cert_details_file_path, serde_json::to_string(&cert)?)
