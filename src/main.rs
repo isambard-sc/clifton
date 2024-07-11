@@ -71,6 +71,8 @@ enum Commands {
         #[command(subcommand)]
         command: Option<SshConfigCommands>,
     },
+    /// Display the SSH command line to use for each project
+    SshCommand {},
 }
 
 #[derive(Subcommand)]
@@ -205,7 +207,7 @@ fn main() -> Result<()> {
             let configs: Result<Vec<_>> = f.projects.iter().map(|p| {
                 let host_alias = format!("{}.{}", &p.short_name, &f.service);
                 let host_config = format!(
-                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n\tForwardAgent yes\n\tAddKeysToAgent yes\n",
+                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tCertificateFile {}\n\tAddKeysToAgent yes\n",
                     &host_alias,
                     f.hostname,
                     f.proxy_jump,
@@ -244,6 +246,23 @@ fn main() -> Result<()> {
                     eprintln!();
                     println!("{}", print_config);
                 }
+            }
+        }
+        Some(Commands::SshCommand {}) => {
+            let f: WaldurCertificateSignResponse =
+                serde_json::from_str(&std::fs::read_to_string(&cert_details_file_path).context(
+                    "Could not read certificate details cache. Have you run `clifton auth`?",
+                )?)
+                .context("Could not parse certificate details cache.")?;
+            for p in &f.projects {
+                let line = format!(
+                    "ssh -J '%r@{}' -o 'CertificateFile {}' -o 'AddKeysToAgent yes' {}@{}",
+                    &f.proxy_jump,
+                    &cert_file_path.display(),
+                    &p.username,
+                    &f.hostname,
+                );
+                println!("{}", line);
             }
         }
         None => Args::command().print_help()?,
