@@ -233,7 +233,11 @@ fn main() -> Result<()> {
             }).collect();
             let configs = configs?;
             let print_config = configs.join("\n");
-            let file_config = configs.join("\n"); // TODO Add "magaged" labels
+            let file_config = configs
+                .iter()
+                .map(|a| format!("# CLIFTON MANAGED START\n{}# CLIFTON MANAGED END\n", a))
+                .collect::<Vec<_>>()
+                .join("\n"); // TODO Add "magaged" labels
             match command {
                 Some(SshConfigCommands::Append { ssh_config }) => {
                     // TODO See if already present and update if so
