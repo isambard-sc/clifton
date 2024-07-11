@@ -78,10 +78,6 @@ struct Args {
     )]
     config_file: Option<std::path::PathBuf>,
 
-    /// The SSH identity to use
-    #[arg(short = 'i', long)]
-    identity: Option<std::path::PathBuf>,
-
     #[command(subcommand)]
     command: Option<Commands>,
 }
@@ -89,7 +85,11 @@ struct Args {
 #[derive(Subcommand)]
 enum Commands {
     /// Authenticate and retrieve signed SSH certificate
-    Auth {},
+    Auth {
+        /// The SSH identity to use
+        #[arg(short = 'i', long)]
+        identity: Option<std::path::PathBuf>,
+    },
     /// Display the OpenSSH config
     SshConfig {
         /// Generate the SSH config snippet
@@ -159,23 +159,23 @@ fn main() -> Result<()> {
         Err(_) => toml::from_str("")?,
     };
 
-    // Load the user's public key
-    let identity_file = args.identity.as_ref().unwrap_or(&config.identity);
-    if !identity_file.is_file() {
-        anyhow::bail!(format!(
-            "Identity file {} not found",
-            &identity_file.display()
-        ))
-    }
-    let identity = ssh_key::PrivateKey::read_openssh_file(identity_file.as_path())
-        .context("Could not read SSH identity file")?;
-
     // Set up cache
     let cache_dir = dirs::cache_dir().unwrap_or(".".parse()?).join("clifton");
     let cert_details_file_path = cache_dir.join("cert.json");
 
     match &args.command {
-        Some(Commands::Auth {}) => {
+        Some(Commands::Auth { identity }) => {
+            // Load the user's public key
+            let identity_file = identity.as_ref().unwrap_or(&config.identity);
+            if !identity_file.is_file() {
+                anyhow::bail!(format!(
+                    "Identity file {} not found",
+                    &identity_file.display()
+                ))
+            }
+            let identity = ssh_key::PrivateKey::read_openssh_file(identity_file.as_path())
+                .context("Could not read SSH identity file")?;
+
             let cert_file_path = identity_file.with_file_name(
                 [
                     identity_file
