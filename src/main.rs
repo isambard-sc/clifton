@@ -99,7 +99,7 @@ enum Commands {
     /// Display the SSH command line to use for each project.
     /// Note that the given command may not work for non-standard identity file locations.
     SshCommand {
-        /// fsdf
+        /// The short name of the project to provide the command for
         project: String,
     },
 }
