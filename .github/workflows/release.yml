@@ -53,10 +53,15 @@ jobs:
       contents: write
     outputs:
       ref: "${{ steps.get_version.outputs.version }}"
+      changelog: "${{ steps.changelog.outputs.changelog }}"
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.ref }}  # Use ref here since we must commit on a branch
+      - name: Install kacl
+        run: |
+          python -m venv ~/venv
+          ~/venv/bin/pip install python-kacl
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -79,6 +84,16 @@ jobs:
       - name: Save the version
         id: get_version
         run: echo version="$(cargo metadata --format-version 1 --no-deps | jq --raw-output '.packages[0].version')" >> "${GITHUB_OUTPUT}"
+      - name: Update version in changelog
+        id: changelog
+        run: |
+          ~/venv/bin/kacl-cli release --allow-dirty --no-commit --modify --link "https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.version }}" "${{ steps.get_version.outputs.version }}"
+          git add CHANGELOG.md
+          {
+            echo 'changelog<<EOF'
+            ~/venv/bin/kacl-cli get "${{ steps.get_version.outputs.version }}" | tail -n+2
+            echo EOF
+          }  >> "${GITHUB_OUTPUT}"
       - name: Tag release
         run: |
           git config --global user.name "GitHub Action"
@@ -151,3 +166,4 @@ jobs:
         with:
           tag_name: ${{ needs.tag-release.outputs.ref }}
           files: clifton-*
+          body: ${{ needs.tag-release.outputs.changelog }}

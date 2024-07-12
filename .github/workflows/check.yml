@@ -29,6 +29,19 @@ jobs:
           ~/venv/bin/pip install reuse
       - name: Check REUSE spec
         run: ~/venv/bin/reuse lint
+  changelog:
+    name: Changelog format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Install kacl
+        run: |
+          python -m venv ~/venv
+          ~/venv/bin/pip install python-kacl
+      - name: Check changelog format
+        run: ~/venv/bin/kacl-cli verify
   code-checks:
     name: Tests and lints
     runs-on: ${{ matrix.os }}
