@@ -280,10 +280,8 @@ fn main() -> Result<()> {
             let config = jump_config + &alias_configs.join("\n");
             match command {
                 Some(SshConfigCommands::Write { ssh_config }) => {
-                    let current_config = std::fs::read_to_string(ssh_config).context(format!(
-                        "Cannot read SSH config file {}",
-                        ssh_config.display()
-                    ))?;
+                    // TODO allow tilde in custom path
+                    let current_config = std::fs::read_to_string(ssh_config).unwrap_or_default();
                     let clifton_ssh_config_file = ssh_config.with_file_name("config_clifton");
                     let include_line = format!("Include {}\n", clifton_ssh_config_file.display());
                     if !current_config.contains(&include_line) {
