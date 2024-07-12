@@ -74,6 +74,7 @@ jobs:
           toolchain: stable
           targets: ${{ matrix.target }}
           components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
       - name: Install cross
         uses: taiki-e/install-action@cross
         if: matrix.cross
