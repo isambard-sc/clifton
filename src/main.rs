@@ -86,7 +86,7 @@ struct Args {
 enum Commands {
     /// Authenticate and retrieve signed SSH certificate
     Auth {
-        /// The SSH identity to use
+        /// The SSH identity (private key) to use. Should be a path like ~/.ssh/id_id_ed25519
         #[arg(short = 'i', long)]
         identity: Option<std::path::PathBuf>,
     },
@@ -173,8 +173,8 @@ fn main() -> Result<()> {
             let identity_file = identity.as_ref().unwrap_or(&config.identity);
             if !identity_file.is_file() {
                 anyhow::bail!(format!(
-                    "Identity file {} not found",
-                    &identity_file.display()
+                    "Identity file {} not found.\nEither specify the identity file (see `clifton auth --help`) or create a new key.",
+                    &identity_file.display(),
                 ))
             }
             let identity = ssh_key::PrivateKey::read_openssh_file(identity_file.as_path())
@@ -238,6 +238,7 @@ fn main() -> Result<()> {
             }
             std::fs::write(&cert_file_path, format!("{}\n", &cert.certificate))
                 .context("Could not write certificate file.")?;
+            // TODO delete cache on failed auth
             std::fs::write(
                 &cert_details_file_path,
                 serde_json::to_string(&CertificateConfigCache::from_reponse(
