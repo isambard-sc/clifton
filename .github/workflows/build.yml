@@ -58,6 +58,9 @@ jobs:
         with:
           ref: ${{ inputs.ref || '' }}
           fetch-depth: 0  # This is needed so that git-describe works properly to set the version
+      - name: install MUSL
+        if: contains(matrix.target, 'musl')
+        run: apt install musl-tool
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
