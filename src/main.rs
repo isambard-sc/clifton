@@ -18,7 +18,7 @@ pub mod built_info {
 }
 
 fn version() -> &'static str {
-    built_info::GIT_VERSION.expect("Could not find version.")
+    built_info::GIT_VERSION.unwrap_or(built_info::PKG_VERSION)
 }
 
 #[derive(Deserialize)]
