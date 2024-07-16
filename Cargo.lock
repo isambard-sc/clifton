@@ -285,6 +285,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "built",
+ "chrono",
  "clap",
  "dirs",
  "http 1.1.0",
@@ -1577,6 +1578,7 @@ dependencies = [
  "p521",
  "rsa",
  "sec1",
+ "serde",
  "sha2",
  "signature",
  "ssh-cipher",

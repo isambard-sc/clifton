@@ -23,7 +23,7 @@ fn version() -> &'static str {
 
 #[derive(Deserialize)]
 struct WaldurCertificateSignResponse {
-    certificate: String,
+    certificate: ssh_key::Certificate,
     #[serde(with = "http_serde::authority")]
     hostname: http::uri::Authority,
     #[serde(with = "http_serde::authority")]
@@ -236,8 +236,20 @@ fn main() -> Result<()> {
                     anyhow::bail!("Did not authenticate with any projects.")
                 }
             }
-            std::fs::write(&cert_file_path, format!("{}\n", &cert.certificate))
-                .context("Could not write certificate file.")?;
+            std::fs::write(
+                &cert_file_path,
+                format!(
+                    "{}\n",
+                    &cert
+                        .certificate
+                        .to_openssh()
+                        .context("Could not convert certificate to OpenSSH format.")?
+                ),
+            )
+            .context("Could not write certificate file.")?;
+            type Tz = chrono::offset::Utc; // TODO This is UNIX time, not UTC
+            let valid_before: chrono::DateTime<Tz> = cert.certificate.valid_before_time().into();
+            let valid_for = valid_before - Tz::now();
             // TODO delete cache on failed auth
             std::fs::write(
                 &cert_details_file_path,
@@ -247,6 +259,11 @@ fn main() -> Result<()> {
                 ))?,
             )
             .context("Could not write certificate details cache.")?;
+            println!(
+                "Certificate valid for {} hours and {} minutes.",
+                valid_for.num_hours(),
+                valid_for.num_minutes() % 60,
+            );
             println!("Certificate file written to {}", &cert_file_path.display());
         }
         Some(Commands::SshConfig { command }) => {

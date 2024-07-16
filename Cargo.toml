@@ -13,6 +13,7 @@ repository = "https://github.com/isambard-sc/clifton/"
 
 [dependencies]
 anyhow = { version = "1.0.86", default-features = false, features = ["std"] }
+chrono = { version = "0.4.38", default-features = false, features = ["now"] }
 clap = { version = "4.5.6", default-features = false, features = ["derive", "color", "help", "usage", "error-context", "suggestions", "env", "std", "string"] }
 dirs = { version = "5.0.1", default-features = false }
 http = { version = "1.1.0", default-features = false }
@@ -24,7 +25,7 @@ qrcode = { version = "0.14.1", default-features = false }
 reqwest = { version = "0.11.0", default-features = false, features = ["json", "blocking", "rustls-tls"] }
 serde = { version = "1.0.204", default-features = false }
 serde_json = { version = "1.0.117", default-features = false }
-ssh-key = { version = "0.6.6", default-features = false, features = ["std"] }
+ssh-key = { version = "0.6.6", default-features = false, features = ["std", "serde"] }
 ssh2-config = { version = "0.2.3", default-features = false }
 toml = { version = "0.8.14", default-features = false, features = ["parse"] }
 url = { version = "2.5.0", default-features = false, features = ["serde"] }
