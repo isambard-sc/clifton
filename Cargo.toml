@@ -4,8 +4,12 @@
 [package]
 name = "clifton"
 version = "0.1.0"
+description = "An SSH connection manager"
 edition = "2021"
 build = "build.rs"
+license = "MIT"
+homepage = "https://github.com/isambard-sc/clifton/"
+repository = "https://github.com/isambard-sc/clifton/"
 
 [dependencies]
 anyhow = { version = "1.0.86", default-features = false, features = ["std"] }
