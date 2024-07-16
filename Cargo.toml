@@ -14,7 +14,7 @@ repository = "https://github.com/isambard-sc/clifton/"
 [dependencies]
 anyhow = { version = "1.0.86", default-features = false, features = ["std"] }
 chrono = { version = "0.4.38", default-features = false, features = ["now"] }
-clap = { version = "4.5.6", default-features = false, features = ["derive", "color", "help", "usage", "error-context", "suggestions", "env", "std", "string"] }
+clap = { version = "4.5.9", default-features = false, features = ["derive", "color", "help", "usage", "error-context", "suggestions", "env", "std", "string"] }
 dirs = { version = "5.0.1", default-features = false }
 http = { version = "1.1.0", default-features = false }
 http-serde = { version = "2.1.1", default-features = false }
