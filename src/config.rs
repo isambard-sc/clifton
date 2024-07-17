@@ -6,7 +6,7 @@ use url::Url;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
-    /// The USL of the KeyCLoak instance
+    /// The URL of the KeyCloak instance
     #[serde(default = "Config::default_keycloak_url")]
     pub keycloak_url: Url,
     /// The URL of the Waldur API server
@@ -22,11 +22,13 @@ pub struct Config {
 
 impl Config {
     fn default_keycloak_url() -> Url {
+        #[allow(clippy::expect_used)]
         "https://keycloak.isambard.ac.uk/realms/isambard/"
             .parse()
             .expect("Default KeyCloak path does not parse")
     }
     fn default_waldur_api_url() -> Url {
+        #[allow(clippy::expect_used)]
         "https://portal-api.isambard.ac.uk/"
             .parse()
             .expect("Default Waldur API path does not parse")
@@ -35,6 +37,7 @@ impl Config {
         "clifton".to_string()
     }
     fn default_identity() -> std::path::PathBuf {
+        #[allow(clippy::expect_used)]
         // TODO Check for existence of different keys and fall back.
         dirs::home_dir()
             .expect("Cannot locate home directory")

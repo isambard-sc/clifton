@@ -54,16 +54,13 @@ pub fn get_keycloak_token(
             .ok()
             .context("Opening web browser")?;
     }
-    println!(
-        "Open this URL in your browser:\n{}",
-        &verification_uri_complete
-    );
+    println!("Open this URL in your browser:\n{verification_uri_complete}");
     let qr = QrCode::new(verification_uri_complete)?
         .render::<unicode::Dense1x2>()
         .light_color(unicode::Dense1x2::Light)
         .dark_color(unicode::Dense1x2::Dark)
         .build();
-    println!("Or scan this QR code:\n{}", qr);
+    println!("Or scan this QR code:\n{qr}");
 
     // Now poll for the token
     let token = device_client
@@ -75,8 +72,8 @@ pub fn get_keycloak_token(
 }
 
 /// Using the token from KeyCloak, ask Waldur for an API token
-pub fn get_waldur_token(waldur_api_url: &Url, kc_token: AccessToken) -> Result<String> {
-    let url = format!("{}api-auth/keycloak", waldur_api_url);
+pub fn get_waldur_token(waldur_api_url: &Url, kc_token: &AccessToken) -> Result<String> {
+    let url = format!("{waldur_api_url}api-auth/keycloak");
     let r = reqwest::blocking::Client::new()
         .get(url)
         .header("Accept", "application/json")

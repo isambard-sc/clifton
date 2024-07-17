@@ -291,7 +291,6 @@ dependencies = [
  "http-serde",
  "md-5",
  "oauth2",
- "openssh-keys",
  "qrcode",
  "reqwest",
  "serde",
@@ -1066,19 +1065,6 @@ name = "once_cell"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
-
-[[package]]
-name = "openssh-keys"
-version = "0.6.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abb830a82898b2ac17c9620ddce839ac3b34b9cb8a1a037cbdbfb9841c756c3e"
-dependencies = [
- "base64 0.21.7",
- "byteorder",
- "md-5",
- "sha2",
- "thiserror",
-]
 
 [[package]]
 name = "option-ext"

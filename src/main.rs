@@ -156,7 +156,7 @@ fn default_config_path() -> std::path::PathBuf {
 pub fn fingerprint_md5(key: &ssh_key::PrivateKey) -> Result<String> {
     let mut sh = md5::Md5::default();
     sh.update(key.public_key().to_bytes()?);
-    let md5: Vec<String> = sh.finalize().iter().map(|n| format!("{:02x}", n)).collect();
+    let md5: Vec<String> = sh.finalize().iter().map(|n| format!("{n:02x}")).collect();
     Ok(md5.join(":"))
 }
 
@@ -326,7 +326,7 @@ fn main() -> Result<()> {
                     if !current_config.contains(&include_line) {
                         let new_config = include_line + &current_config;
                         std::fs::write(ssh_config, new_config)
-                            .context("Could not write main SSH config file.")?
+                            .context("Could not write main SSH config file.")?;
                     }
                     let text_for_file = "# CLIFTON MANAGED\n".to_string() + &config;
                     std::fs::write(&clifton_ssh_config_file, text_for_file)
@@ -346,7 +346,7 @@ fn main() -> Result<()> {
                     eprintln!("Copy this configuration into your SSH config file");
                     eprintln!("or use `clifton ssh-config write`.");
                     eprintln!();
-                    println!("{}", &config);
+                    println!("{config}");
                 }
             }
         }
@@ -370,11 +370,10 @@ fn main() -> Result<()> {
                     // unless it's in the default search list.
                     eprintln!("Note that if using a non-standard identity file location, the given SSH command may not work.");
                 }
-                println!("{}", line);
+                println!("{line}");
             } else {
                 anyhow::bail!(format!(
-                    "Project {} does not match any currently authorised for. Try rerunning `clifton auth`.",
-                    project
+                    "Project {project} does not match any currently authorised for. Try rerunning `clifton auth`."
                 ))
             }
         }
@@ -395,7 +394,7 @@ fn get_api_key(
 ) -> Result<String, anyhow::Error> {
     let kc_token = auth::get_keycloak_token(&config.client_id, &config.keycloak_url, true)
         .context("Could not get OAuth token.")?;
-    let api_key = auth::get_waldur_token(&config.waldur_api_url, kc_token)
+    let api_key = auth::get_waldur_token(&config.waldur_api_url, &kc_token)
         .context("Could not get Waldur API token.")?;
     let mut f = std::fs::OpenOptions::new();
     #[cfg(unix)]
@@ -421,13 +420,13 @@ fn get_cert(
     let fingerprint =
         fingerprint_md5(identity).context("Could not calculate the MD5 hash of the fingerprint")?;
     let cert_r = reqwest::blocking::Client::new()
-        .get(format!("{}api/users/me/cert", &api_url))
+        .get(format!("{api_url}api/users/me/cert"))
         .query(&[
             ("fingerprint", fingerprint),
             ("clifton-version", version().to_string()),
         ])
         .header("Accept", "application/json")
-        .header("Authorization", format!("Token {}", token))
+        .header("Authorization", format!("Token {token}"))
         .send()
         .context("Could not get certificate from Waldur.")?;
     if cert_r.status().is_success() {
