@@ -31,7 +31,29 @@ struct WaldurCertificateSignResponse {
     service: String,
     projects: Vec<ProjectDetails>,
     user: String,
-    version: u32,
+    #[serde(
+        deserialize_with = "WaldurCertificateSignResponse::check_version",
+        rename = "version"
+    )]
+    _version: u32,
+}
+
+impl WaldurCertificateSignResponse {
+    /// The version of the response that the portal should return.
+    const VERSION: u32 = 1;
+    fn check_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let v = u32::deserialize(deserializer)?;
+        let expected = Self::VERSION;
+        if v != expected {
+            return Err(serde::de::Error::custom(format!(
+                "mismatched version `{v}` for certificate response, expected `{expected}`"
+            )));
+        }
+        Ok(v)
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -411,7 +433,7 @@ fn get_cert(
     if cert_r.status().is_success() {
         let cert = cert_r
             .json::<WaldurCertificateSignResponse>()
-            .context("Could not parse certificate response from Waldur.")?;
+            .context("Could not parse certificate response from Waldur. This could be caused by an outdated version of Clifton.")?;
         Ok(cert)
     } else {
         anyhow::bail!(cert_r.text().context("Could not get error message.")?);
