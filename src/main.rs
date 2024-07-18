@@ -11,6 +11,7 @@ use std::io::IsTerminal;
 use crate::auth::get_api_key;
 
 pub mod auth;
+pub mod cache;
 pub mod config;
 
 pub mod built_info {
@@ -152,14 +153,6 @@ fn default_config_path() -> std::path::PathBuf {
         .join("config.toml")
 }
 
-/// Waldur uses old MD5 fingerprints so we must convert to that format
-pub fn fingerprint_md5(key: &ssh_key::PrivateKey) -> Result<String> {
-    let mut sh = md5::Md5::default();
-    sh.update(key.public_key().to_bytes()?);
-    let md5: Vec<String> = sh.finalize().iter().map(|n| format!("{n:02x}")).collect();
-    Ok(md5.join(":"))
-}
-
 fn main() -> Result<()> {
     // Read the command line arguments
     let args = match Args::try_parse() {
@@ -185,9 +178,7 @@ fn main() -> Result<()> {
         Err(_) => toml::from_str("")?,
     };
 
-    // Set up cache
-    let cache_dir = dirs::cache_dir().unwrap_or(".".parse()?).join("clifton");
-    let cert_details_file_path = cache_dir.join("cert.json");
+    let cert_details_file_name = "cert.json";
 
     match &args.command {
         Some(Commands::Auth { identity }) => {
@@ -211,17 +202,9 @@ fn main() -> Result<()> {
                 ]
                 .join(std::ffi::OsStr::new("")),
             );
-            match cache_dir.try_exists() {
-                Ok(true) => (),
-                Ok(false) => std::fs::create_dir_all(&cache_dir)
-                    .context("Could not create cache directory.")?,
-                Err(err) => {
-                    return Err(err).context("Cound not check for existence of cache directory.")
-                }
-            }
-            let key_cache_path = cache_dir.join("waldur_api_key");
+            let key_cache_path = "waldur_api_key";
             // Try to load the Waldur API key from the cache
-            let cert = std::fs::read_to_string(&key_cache_path)
+            let cert = cache::read_file(key_cache_path)
                 .ok()
                 .and_then(|api_key| {
                     // If it's there, try to use it
@@ -230,7 +213,7 @@ fn main() -> Result<()> {
                 .map_or_else(
                     || {
                         // If the certificate could not be fetched, renew the API token
-                        let api_key = get_api_key(&config, &key_cache_path)?;
+                        let api_key = get_api_key(&config, key_cache_path)?;
                         get_cert(&identity, &config.waldur_api_url, &api_key)
                     },
                     Ok,
@@ -273,8 +256,8 @@ fn main() -> Result<()> {
             let valid_before: chrono::DateTime<Tz> = cert.certificate.valid_before_time().into();
             let valid_for = valid_before - Tz::now();
             // TODO delete cache on failed auth
-            std::fs::write(
-                &cert_details_file_path,
+            cache::write_file(
+                cert_details_file_name,
                 serde_json::to_string(&CertificateConfigCache::from_reponse(
                     cert,
                     identity_file.clone(),
@@ -290,7 +273,7 @@ fn main() -> Result<()> {
         }
         Some(Commands::SshConfig { command }) => {
             let f: CertificateConfigCache = serde_json::from_str(
-                &std::fs::read_to_string(&cert_details_file_path).context(
+                &cache::read_file(cert_details_file_name).context(
                     "Could not read certificate details cache. Have you run `clifton auth`?",
                 )?,
             )
@@ -352,7 +335,7 @@ fn main() -> Result<()> {
         }
         Some(Commands::SshCommand { project }) => {
             let f: CertificateConfigCache =
-                serde_json::from_str(&std::fs::read_to_string(&cert_details_file_path).context(
+                serde_json::from_str(&cache::read_file(cert_details_file_name).context(
                     "Could not read certificate details cache. Have you run `clifton auth`?",
                 )?)
                 .context("Could not parse certificate details cache.")?;
@@ -384,6 +367,14 @@ fn main() -> Result<()> {
     // TODO Write known_hosts line
 
     Ok(())
+}
+
+/// Waldur uses old MD5 fingerprints so we must convert to that format
+pub fn fingerprint_md5(key: &ssh_key::PrivateKey) -> Result<String> {
+    let mut sh = md5::Md5::default();
+    sh.update(key.public_key().to_bytes()?);
+    let md5: Vec<String> = sh.finalize().iter().map(|n| format!("{n:02x}")).collect();
+    Ok(md5.join(":"))
 }
 
 /// Get a signed certificate from Waldur
