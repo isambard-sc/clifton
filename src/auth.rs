@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
 // SPDX-License-Identifier: MIT
 
+use std::io::Write;
+use std::os::unix::fs::OpenOptionsExt;
+
 use anyhow::{Context, Result};
 use oauth2::reqwest::http_client;
 use oauth2::{
@@ -11,6 +14,8 @@ use oauth2::{AccessToken, TokenResponse as _};
 use qrcode::{render::unicode, QrCode};
 use serde::Deserialize;
 use url::Url;
+
+use crate::config;
 
 #[derive(Deserialize)]
 struct Token {
@@ -83,4 +88,29 @@ pub fn get_waldur_token(waldur_api_url: &Url, kc_token: &AccessToken) -> Result<
         )
         .send()?;
     Ok(r.json::<Token>()?.token)
+}
+
+/// Do the full authentication pathway with OAuth and Waldur to get
+/// the Waldur API token. Finally, cache it.
+pub fn get_api_key(
+    config: &config::Config,
+    key_cache_path: &std::path::PathBuf,
+) -> Result<String, anyhow::Error> {
+    let kc_token = get_keycloak_token(&config.client_id, &config.keycloak_url, true)
+        .context("Could not get OAuth token.")?;
+    let api_key = get_waldur_token(&config.waldur_api_url, &kc_token)
+        .context("Could not get Waldur API token.")?;
+    let mut f = std::fs::OpenOptions::new();
+    #[cfg(unix)]
+    {
+        f = f.mode(0o600).clone();
+    }
+    f.write(true)
+        .truncate(true)
+        .create(true)
+        .open(key_cache_path)
+        .context("Could not open cache file.")?
+        .write_all(api_key.as_bytes())
+        .context("Could not write to cache.")?;
+    Ok(api_key)
 }

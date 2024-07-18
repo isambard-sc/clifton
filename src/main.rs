@@ -1,14 +1,14 @@
 // SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
 // SPDX-License-Identifier: MIT
 
-use std::io::{IsTerminal, Write};
 #[cfg(unix)]
-use std::os::unix::fs::OpenOptionsExt;
-
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, Parser, Subcommand};
 use md5::Digest;
 use serde::{Deserialize, Serialize};
+use std::io::IsTerminal;
+
+use crate::auth::get_api_key;
 
 pub mod auth;
 pub mod config;
@@ -384,31 +384,6 @@ fn main() -> Result<()> {
     // TODO Write known_hosts line
 
     Ok(())
-}
-
-/// Do the full authentication pathway with OAuth and Waldur to get
-/// the Waldur API token. Finally, cache it.
-fn get_api_key(
-    config: &config::Config,
-    key_cache_path: &std::path::PathBuf,
-) -> Result<String, anyhow::Error> {
-    let kc_token = auth::get_keycloak_token(&config.client_id, &config.keycloak_url, true)
-        .context("Could not get OAuth token.")?;
-    let api_key = auth::get_waldur_token(&config.waldur_api_url, &kc_token)
-        .context("Could not get Waldur API token.")?;
-    let mut f = std::fs::OpenOptions::new();
-    #[cfg(unix)]
-    {
-        f = f.mode(0o600).clone();
-    }
-    f.write(true)
-        .truncate(true)
-        .create(true)
-        .open(key_cache_path)
-        .context("Could not open cache file.")?
-        .write_all(api_key.as_bytes())
-        .context("Could not write to cache.")?;
-    Ok(api_key)
 }
 
 /// Get a signed certificate from Waldur
