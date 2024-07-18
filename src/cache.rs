@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 use std::io::Write;
+#[cfg(unix)]
 use std::os::unix::fs::OpenOptionsExt;
 
 use anyhow::{Context, Result};

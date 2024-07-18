@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
 // SPDX-License-Identifier: MIT
 
-#[cfg(unix)]
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, Parser, Subcommand};
 use md5::Digest;
