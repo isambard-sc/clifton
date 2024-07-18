@@ -22,7 +22,7 @@ fn version() -> &'static str {
 }
 
 #[derive(Deserialize)]
-struct WaldurCertificateSignResponse {
+struct CertificateSignResponse {
     certificate: ssh_key::Certificate,
     #[serde(with = "http_serde::authority")]
     hostname: http::uri::Authority,
@@ -32,13 +32,13 @@ struct WaldurCertificateSignResponse {
     projects: Vec<ProjectDetails>,
     user: String,
     #[serde(
-        deserialize_with = "WaldurCertificateSignResponse::check_version",
+        deserialize_with = "CertificateSignResponse::check_version",
         rename = "version"
     )]
     _version: u32,
 }
 
-impl WaldurCertificateSignResponse {
+impl CertificateSignResponse {
     /// The version of the response that the portal should return.
     const VERSION: u32 = 1;
     fn check_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
@@ -75,7 +75,7 @@ struct CertificateConfigCache {
 }
 
 impl CertificateConfigCache {
-    fn from_reponse(r: WaldurCertificateSignResponse, identity: std::path::PathBuf) -> Self {
+    fn from_reponse(r: CertificateSignResponse, identity: std::path::PathBuf) -> Self {
         CertificateConfigCache {
             hostname: r.hostname,
             proxy_jump: r.proxy_jump,
@@ -416,7 +416,7 @@ fn get_cert(
     identity: &ssh_key::PrivateKey,
     api_url: &url::Url,
     token: &String,
-) -> Result<WaldurCertificateSignResponse> {
+) -> Result<CertificateSignResponse> {
     let fingerprint =
         fingerprint_md5(identity).context("Could not calculate the MD5 hash of the fingerprint")?;
     let cert_r = reqwest::blocking::Client::new()
@@ -431,7 +431,7 @@ fn get_cert(
         .context("Could not get certificate from Waldur.")?;
     if cert_r.status().is_success() {
         let cert = cert_r
-            .json::<WaldurCertificateSignResponse>()
+            .json::<CertificateSignResponse>()
             .context("Could not parse certificate response from Waldur. This could be caused by an outdated version of Clifton.")?;
         Ok(cert)
     } else {
