@@ -308,7 +308,6 @@ dependencies = [
  "serde_json",
  "shellexpand",
  "ssh-key",
- "ssh2-config",
  "toml",
  "url",
  "webbrowser",
@@ -1611,18 +1610,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ssh2-config"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98150bad1e8fe53df07f38b53364f4d34e84a6cc2ee9f933e43629571060af65"
-dependencies = [
- "bitflags 2.6.0",
- "dirs",
- "thiserror",
- "wildmatch",
-]
-
-[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1997,12 +1984,6 @@ name = "webpki-roots"
 version = "0.25.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f20c57d8d7db6d3b86154206ae5d8fba62dd39573114de97c2cb0578251f8e1"
-
-[[package]]
-name = "wildmatch"
-version = "2.3.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3928939971918220fed093266b809d1ee4ec6c1a2d72692ff6876898f3b16c19"
 
 [[package]]
 name = "winapi-util"
