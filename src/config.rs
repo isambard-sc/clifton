@@ -17,7 +17,7 @@ pub struct Config {
     pub client_id: String,
     /// The default location of the identity to use
     #[serde(default = "Config::default_identity")]
-    pub identity: std::path::PathBuf,
+    pub identity: Option<std::path::PathBuf>,
 }
 
 impl Config {
@@ -36,12 +36,16 @@ impl Config {
     fn default_client_id() -> String {
         "clifton".to_string()
     }
-    fn default_identity() -> std::path::PathBuf {
+    fn default_identity() -> Option<std::path::PathBuf> {
         #[allow(clippy::expect_used)]
-        // TODO Check for existence of different keys and fall back.
-        dirs::home_dir()
-            .expect("Cannot locate home directory")
-            .join(".ssh")
-            .join("id_ed25519")
+        ["id_ed25519", "id_ecdsa", "id_rsa"]
+            .iter()
+            .map(|t| {
+                dirs::home_dir()
+                    .expect("Cannot locate home directory.")
+                    .join(".ssh")
+                    .join(t)
+            })
+            .find(|i| i.try_exists().unwrap_or(false))
     }
 }

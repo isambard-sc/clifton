@@ -182,8 +182,12 @@ fn main() -> Result<()> {
     match &args.command {
         Some(Commands::Auth { identity }) => {
             // Load the user's public key
-            let identity_file =
-                shellexpand::path::tilde(identity.as_ref().unwrap_or(&config.identity));
+            let identity_file = shellexpand::path::tilde(
+                identity
+                    .as_ref()
+                    .or(config.identity.as_ref())
+                    .context("No identity file specified.")?,
+            );
             if !identity_file.is_file() {
                 anyhow::bail!(format!(
                     "Identity file {} not found.\nEither specify the identity file (see `clifton auth --help`) or create a new key.",
@@ -204,6 +208,10 @@ fn main() -> Result<()> {
             );
             let key_cache_path = "waldur_api_key";
             // Try to load the Waldur API key from the cache
+            println!(
+                "Retrieving certificate for identity `{}`.",
+                &identity_file.display()
+            );
             let cert = cache::read_file(key_cache_path)
                 .ok()
                 .and_then(|api_key| {
