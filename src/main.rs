@@ -165,11 +165,11 @@ fn main() -> Result<()> {
     // Load settings from the config file
     let config_file_path = match &args.config_file {
         Some(f) => match f.try_exists() {
-            Ok(true) => f,
+            Ok(true) => shellexpand::path::tilde(f),
             Ok(false) => anyhow::bail!(format!("Config file `{}` not found.", &f.display())),
             Err(err) => return Err(err).context("Could not dertmine if config file exists."),
         },
-        None => &default_config_path(),
+        None => default_config_path().into(),
     };
 
     let config: config::Config = match std::fs::read_to_string(config_file_path) {
@@ -182,21 +182,22 @@ fn main() -> Result<()> {
     match &args.command {
         Some(Commands::Auth { identity }) => {
             // Load the user's public key
-            let identity_file = identity.as_ref().unwrap_or(&config.identity);
+            let identity_file =
+                shellexpand::path::tilde(identity.as_ref().unwrap_or(&config.identity));
             if !identity_file.is_file() {
                 anyhow::bail!(format!(
                     "Identity file {} not found.\nEither specify the identity file (see `clifton auth --help`) or create a new key.",
                     &identity_file.display(),
                 ))
             }
-            let identity = ssh_key::PrivateKey::read_openssh_file(identity_file.as_path())
+            let identity = ssh_key::PrivateKey::read_openssh_file(&identity_file)
                 .context("Could not read SSH identity file")?;
 
             let cert_file_path = identity_file.with_file_name(
                 [
                     identity_file
                         .file_name()
-                        .context("Could not understand identity file name")?,
+                        .context("Could not understand identity file name.")?,
                     std::ffi::OsStr::new("-cert.pub"),
                 ]
                 .join(std::ffi::OsStr::new("")),
@@ -259,7 +260,7 @@ fn main() -> Result<()> {
                 cert_details_file_name,
                 serde_json::to_string(&CertificateConfigCache::from_reponse(
                     cert,
-                    identity_file.clone(),
+                    identity_file.to_path_buf(),
                 ))?,
             )
             .context("Could not write certificate details cache.")?;
@@ -301,13 +302,13 @@ fn main() -> Result<()> {
             let config = jump_config + &alias_configs.join("\n");
             match command {
                 Some(SshConfigCommands::Write { ssh_config }) => {
-                    // TODO allow tilde in custom path
-                    let current_config = std::fs::read_to_string(ssh_config).unwrap_or_default();
+                    let ssh_config = shellexpand::path::tilde(ssh_config);
+                    let current_config = std::fs::read_to_string(&ssh_config).unwrap_or_default();
                     let clifton_ssh_config_file = ssh_config.with_file_name("config_clifton");
                     let include_line = format!("Include {}\n", clifton_ssh_config_file.display());
                     if !current_config.contains(&include_line) {
                         let new_config = include_line + &current_config;
-                        std::fs::write(ssh_config, new_config)
+                        std::fs::write(&ssh_config, new_config)
                             .context("Could not write main SSH config file.")?;
                     }
                     let text_for_file = "# CLIFTON MANAGED\n".to_string() + &config;

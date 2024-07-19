@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Added
 - Print how long the certificate is valid for when downloaded.
 
+### Fixed
+- Allow tilde in arguments.
+
 ## [0.1.0] - 2024-07-12
 ### Added
 - Initial release
