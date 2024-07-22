@@ -26,7 +26,7 @@ serde = { version = "1.0.204", default-features = false }
 serde_json = { version = "1.0.117", default-features = false }
 shellexpand = { version = "3.1.0", default-features = false, features = ["base-0", "dirs", "path", "tilde"] }
 ssh-key = { version = "0.6.6", default-features = false, features = ["std", "serde"] }
-toml = { version = "0.8.14", default-features = false, features = ["parse"] }
+toml = { version = "0.8.15", default-features = false, features = ["parse"] }
 url = { version = "2.5.0", default-features = false, features = ["serde"] }
 webbrowser = { version = "1.0.1", default-features = false }
 
