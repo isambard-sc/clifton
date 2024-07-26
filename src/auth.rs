@@ -93,7 +93,7 @@ pub fn get_api_key<P: AsRef<std::path::Path>>(
     config: &config::Config,
     key_cache_path: P,
 ) -> Result<String, anyhow::Error> {
-    let kc_token = get_keycloak_token(&config.client_id, &config.keycloak_url, true)
+    let kc_token = get_keycloak_token(&config.client_id, &config.keycloak_url, false)
         .context("Could not get OAuth token.")?;
     let api_key = get_waldur_token(&config.waldur_api_url, &kc_token)
         .context("Could not get Waldur API token.")?;
