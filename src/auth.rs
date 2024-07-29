@@ -28,6 +28,7 @@ pub fn get_keycloak_token(
     let client_id = ClientId::new(client_id.to_string());
     let client_secret = None;
 
+    // TODO get these from https://{keycloak}/realms/{realm}/.well-known/openid-configuration
     let auth_url = AuthUrl::from_url(issuer_url.join("protocol/openid-connect/auth/device")?);
     let token_url = TokenUrl::from_url(issuer_url.join("protocol/openid-connect/token")?);
     let device_auth_url =
@@ -41,10 +42,10 @@ pub fn get_keycloak_token(
     // Request the set of codes from the Device Authorization endpoint.
     let details: StandardDeviceAuthorizationResponse = device_client
         .exchange_device_code()
-        .context("Exchanging device code")?
+        .context("Cound not exchange device code.")?
         .add_scope(Scope::new("openid".to_string()))
         .request(http_client)
-        .context("Failed to request codes from device auth endpoint")?;
+        .context("Failed to request codes from device auth endpoint.")?;
 
     // Display the URL and user-code.
     let verification_uri_complete = details
@@ -54,7 +55,7 @@ pub fn get_keycloak_token(
     if open_webpage {
         webbrowser::open(verification_uri_complete)
             .ok()
-            .context("Opening web browser")?;
+            .context("Could not open web browser.")?;
     }
     println!("Open this URL in your browser:\n{verification_uri_complete}");
     let qr = QrCode::new(verification_uri_complete)?
@@ -68,7 +69,7 @@ pub fn get_keycloak_token(
     let token = device_client
         .exchange_device_access_token(&details)
         .request(http_client, std::thread::sleep, None)
-        .context("Getting token from KeyCloak")?;
+        .context("Could not get token from KeyCloak.")?;
 
     Ok(token.access_token().clone())
 }
