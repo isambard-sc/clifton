@@ -385,7 +385,7 @@ fn main() -> Result<()> {
 }
 
 /// Waldur uses old MD5 fingerprints so we must convert to that format
-pub fn fingerprint_md5(key: &ssh_key::PrivateKey) -> Result<String> {
+fn fingerprint_md5(key: &ssh_key::PrivateKey) -> Result<String> {
     let mut sh = md5::Md5::default();
     sh.update(key.public_key().to_bytes()?);
     let md5: Vec<String> = sh.finalize().iter().map(|n| format!("{n:02x}")).collect();
