@@ -53,9 +53,9 @@ pub fn get_keycloak_token(
         .context("Did not receive complete verification URI from server.")?
         .secret();
     if open_webpage {
-        webbrowser::open(verification_uri_complete)
-            .ok()
-            .context("Could not open web browser.")?;
+        if let Err(e) = webbrowser::open(verification_uri_complete) {
+            eprintln!("Could not launch web browser: {e:#}");
+        }
     }
     println!("Open this URL in your browser:\n{verification_uri_complete}");
     let qr = QrCode::new(verification_uri_complete)?
