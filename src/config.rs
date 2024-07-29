@@ -6,6 +6,9 @@ use url::Url;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
+    /// Should the browser be authomatically opened when authenticating
+    #[serde(default = "Config::default_open_browser")]
+    pub open_browser: bool,
     /// The URL of the KeyCloak instance
     #[serde(default = "Config::default_keycloak_url")]
     pub keycloak_url: Url,
@@ -26,6 +29,9 @@ impl Config {
         "https://keycloak.isambard.ac.uk/realms/isambard/"
             .parse()
             .expect("Default KeyCloak path does not parse")
+    }
+    fn default_open_browser() -> bool {
+        true
     }
     fn default_waldur_api_url() -> Url {
         #[allow(clippy::expect_used)]

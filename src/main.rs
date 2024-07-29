@@ -111,6 +111,9 @@ enum Commands {
         /// The SSH identity (private key) to use. Should be a path like ~/.ssh/id_id_ed25519
         #[arg(short = 'i', long)]
         identity: Option<std::path::PathBuf>,
+        /// Should the browser be opened automatically
+        #[arg(long)] // See https://github.com/clap-rs/clap/issues/815 for tracking issue
+        open_browser: Option<bool>,
     },
     /// Display the OpenSSH config
     SshConfig {
@@ -180,7 +183,11 @@ fn main() -> Result<()> {
     let cert_details_file_name = "cert.json";
 
     match &args.command {
-        Some(Commands::Auth { identity }) => {
+        Some(Commands::Auth {
+            identity,
+            open_browser,
+        }) => {
+            let open_browser = open_browser.unwrap_or(config.open_browser);
             // Load the user's public key
             let identity_file = shellexpand::path::tilde(
                 identity
@@ -221,7 +228,7 @@ fn main() -> Result<()> {
                 .map_or_else(
                     || {
                         // If the certificate could not be fetched, renew the API token
-                        let api_key = get_api_key(&config, key_cache_path)?;
+                        let api_key = get_api_key(&config, key_cache_path, open_browser)?;
                         get_cert(&identity, &config.waldur_api_url, &api_key)
                     },
                     Ok,

@@ -93,8 +93,9 @@ pub fn get_waldur_token(waldur_api_url: &Url, kc_token: &AccessToken) -> Result<
 pub fn get_api_key<P: AsRef<std::path::Path>>(
     config: &config::Config,
     key_cache_path: P,
+    open_browser: bool,
 ) -> Result<String, anyhow::Error> {
-    let kc_token = get_keycloak_token(&config.client_id, &config.keycloak_url, true)
+    let kc_token = get_keycloak_token(&config.client_id, &config.keycloak_url, open_browser)
         .context("Could not get OAuth token.")?;
     let api_key = get_waldur_token(&config.waldur_api_url, &kc_token)
         .context("Could not get Waldur API token.")?;
