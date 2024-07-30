@@ -205,6 +205,13 @@ fn main() -> Result<()> {
             let identity = ssh_key::PrivateKey::read_openssh_file(&identity_file)
                 .context("Could not read SSH identity file")?;
 
+            if !identity.is_encrypted() {
+                eprintln!(
+                    "Warning, the SSH identity file `{}` is unencrypted.",
+                    identity_file.display()
+                );
+            }
+
             let cert_file_path = identity_file.with_file_name(
                 [
                     identity_file
