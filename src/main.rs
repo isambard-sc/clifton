@@ -235,13 +235,16 @@ fn main() -> Result<()> {
                 )
                 .context("Could not get certificate.")?;
             match cert.projects.as_slice() {
+                [] => {
+                    anyhow::bail!("Did not authenticate with any projects.")
+                }
                 [p] => {
                     println!(
                         "Authenticated as {} for project {}\n",
                         &cert.user, p.short_name
                     );
                 }
-                projects @ [_, ..] => {
+                projects => {
                     let projects = projects
                         .iter()
                         .map(|p| format!(" - {}", &p.short_name))
@@ -251,9 +254,6 @@ fn main() -> Result<()> {
                         "Authenticated as {} for projects:\n{}\n",
                         &cert.user, projects
                     );
-                }
-                [] => {
-                    anyhow::bail!("Did not authenticate with any projects.")
                 }
             }
             std::fs::write(
