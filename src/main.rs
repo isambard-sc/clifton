@@ -188,6 +188,7 @@ fn main() -> Result<()> {
             open_browser,
         }) => {
             let open_browser = open_browser.unwrap_or(config.open_browser);
+
             // Load the user's public key
             let identity_file = shellexpand::path::tilde(
                 identity
@@ -401,7 +402,7 @@ fn get_cert(
     let fingerprint =
         fingerprint_md5(identity).context("Could not calculate the MD5 hash of the fingerprint")?;
     let cert_r = reqwest::blocking::Client::new()
-        .get(format!("{api_url}api/users/me/cert"))
+        .get(format!("{api_url}api/users/me/cert/"))
         .query(&[
             ("fingerprint", fingerprint),
             ("clifton-version", version().to_string()),
