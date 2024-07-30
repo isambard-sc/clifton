@@ -91,3 +91,9 @@ jobs:
       - name: Build
         run: cross build --target=${{ matrix.target }}
         if: matrix.cross
+      - name: Test
+        run: cargo test --target=${{ matrix.target }}
+        if: ${{ ! matrix.cross }}
+      - name: Test
+        run: cross test --target=${{ matrix.target }}
+        if: matrix.cross

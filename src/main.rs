@@ -427,3 +427,61 @@ fn get_cert(
         anyhow::bail!(cert_r.text().context("Could not get error message.")?);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockito::{Matcher, Server};
+    use serde_json::json;
+
+    #[test]
+    fn test_get_cert() -> Result<()> {
+        let mut server = Server::new();
+        let url = server.url().parse()?;
+
+        let private_key = ssh_key::PrivateKey::random(
+            &mut ssh_key::rand_core::OsRng,
+            ssh_key::Algorithm::Ed25519,
+        )?;
+        let signing_key = ssh_key::PrivateKey::random(
+            &mut ssh_key::rand_core::OsRng,
+            ssh_key::Algorithm::Ed25519,
+        )?;
+        let certificate = {
+            let mut certificate = ssh_key::certificate::Builder::new_with_random_nonce(
+                &mut ssh_key::rand_core::OsRng,
+                private_key.public_key(),
+                0,
+                100,
+            )?;
+            certificate.valid_principal("nobody")?;
+            certificate.sign(&signing_key)?
+        };
+
+        let mock = server
+            .mock("GET", "/api/users/me/cert/")
+            .match_query(Matcher::UrlEncoded(
+                "fingerprint".into(),
+                fingerprint_md5(&private_key)?,
+            ))
+            .with_status(200)
+            .with_header("content-type", "text/json")
+            .with_body(
+                json!({
+                    "service": "foo",
+                    "certificate": certificate,
+                    "hostname": "example.com",
+                    "proxy_jump": "jump.example.com",
+                    "projects": [],
+                    "user": "nobody@example.com",
+                    "version": 1,
+                })
+                .to_string(),
+            )
+            .create();
+
+        get_cert(&private_key, &url, &"foo".to_string()).context("Cannot call get_cert.")?;
+        mock.assert();
+        Ok(())
+    }
+}

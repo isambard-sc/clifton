@@ -33,6 +33,10 @@ webbrowser = { version = "1.0.1", default-features = false }
 [build-dependencies]
 built = { version = "0.7", default-features = false, features = ["git2"] }
 
+[dev-dependencies]
+mockito = "1.4.0"
+ssh-key = { version = "0.6.6", default-features = false, features = ["ed25519", "rand_core"] }
+
 [profile.release]
 strip = true
 opt-level = "z"
