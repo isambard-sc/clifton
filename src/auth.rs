@@ -2,14 +2,19 @@
 // SPDX-License-Identifier: MIT
 
 use anyhow::{Context, Result};
-use oauth2::reqwest::http_client;
-use oauth2::{
-    basic::BasicClient, AuthType, AuthUrl, ClientId, DeviceAuthorizationUrl, Scope,
-    StandardDeviceAuthorizationResponse, TokenUrl,
+use openidconnect::core::{
+    CoreAuthDisplay, CoreClaimName, CoreClaimType, CoreClient, CoreClientAuthMethod,
+    CoreDeviceAuthorizationResponse, CoreGrantType, CoreJsonWebKey, CoreJsonWebKeyType,
+    CoreJsonWebKeyUse, CoreJweContentEncryptionAlgorithm, CoreJweKeyManagementAlgorithm,
+    CoreJwsSigningAlgorithm, CoreResponseMode, CoreResponseType, CoreSubjectIdentifierType,
 };
-use oauth2::{AccessToken, TokenResponse as _};
+use openidconnect::reqwest::http_client;
+use openidconnect::{
+    AccessToken, AdditionalProviderMetadata, AuthType, ClientId, DeviceAuthorizationUrl, IssuerUrl,
+    OAuth2TokenResponse as _, ProviderMetadata, Scope,
+};
 use qrcode::{render::unicode, QrCode};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use url::Url;
 
 use crate::{cache, config};
@@ -19,28 +24,55 @@ struct Token {
     token: String,
 }
 
+// Obtain the device_authorization_url from the OIDC metadata provider.
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct DeviceEndpointProviderMetadata {
+    device_authorization_endpoint: DeviceAuthorizationUrl,
+}
+impl AdditionalProviderMetadata for DeviceEndpointProviderMetadata {}
+type DeviceProviderMetadata = ProviderMetadata<
+    DeviceEndpointProviderMetadata,
+    CoreAuthDisplay,
+    CoreClientAuthMethod,
+    CoreClaimName,
+    CoreClaimType,
+    CoreGrantType,
+    CoreJweContentEncryptionAlgorithm,
+    CoreJweKeyManagementAlgorithm,
+    CoreJwsSigningAlgorithm,
+    CoreJsonWebKeyType,
+    CoreJsonWebKeyUse,
+    CoreJsonWebKey,
+    CoreResponseMode,
+    CoreResponseType,
+    CoreSubjectIdentifierType,
+>;
+
 /// Given an OAuth `client_id` and URL, authenticate with the device code workflow
 pub fn get_keycloak_token(
     client_id: &String,
     issuer_url: &Url,
     open_webpage: bool,
 ) -> Result<AccessToken> {
+    let issuer_url = IssuerUrl::from_url(issuer_url.clone());
     let client_id = ClientId::new(client_id.to_string());
     let client_secret = None;
 
-    // TODO get these from https://{keycloak}/realms/{realm}/.well-known/openid-configuration
-    let auth_url = AuthUrl::from_url(issuer_url.join("protocol/openid-connect/auth/device")?);
-    let token_url = TokenUrl::from_url(issuer_url.join("protocol/openid-connect/token")?);
-    let device_auth_url =
-        DeviceAuthorizationUrl::from_url(issuer_url.join("protocol/openid-connect/auth/device")?);
+    let provider_metadata = DeviceProviderMetadata::discover(&issuer_url, http_client)
+        .context("Cannot discover OIDC metadata.")?;
 
-    // Set up the config for the Keycloak OAuth2 process.
-    let device_client = BasicClient::new(client_id, client_secret, auth_url, Some(token_url))
-        .set_device_authorization_url(device_auth_url)
-        .set_auth_type(AuthType::RequestBody);
+    let device_auth_url = provider_metadata
+        .additional_metadata()
+        .device_authorization_endpoint
+        .clone();
+
+    let device_client =
+        CoreClient::from_provider_metadata(provider_metadata, client_id, client_secret)
+            .set_device_authorization_uri(device_auth_url)
+            .set_auth_type(AuthType::RequestBody);
 
     // Request the set of codes from the Device Authorization endpoint.
-    let details: StandardDeviceAuthorizationResponse = device_client
+    let details: CoreDeviceAuthorizationResponse = device_client
         .exchange_device_code()
         .context("Cound not exchange device code.")?
         .add_scope(Scope::new("openid".to_string()))
