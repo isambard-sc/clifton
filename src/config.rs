@@ -9,15 +9,12 @@ pub struct Config {
     /// Should the browser be automatically opened when authenticating
     #[serde(default = "Config::default_open_browser")]
     pub open_browser: bool,
-    /// Should the QR code be shown then authenticating
+    /// Should the QR code be shown when authenticating
     #[serde(default = "Config::default_show_qr")]
     pub show_qr: bool,
-    /// The URL of the KeyCloak instance
-    #[serde(default = "Config::default_keycloak_url")]
-    pub keycloak_url: Url,
-    /// The URL of the Waldur API server
-    #[serde(default = "Config::default_waldur_api_url")]
-    pub waldur_api_url: Url,
+    /// The URL of the CA server
+    #[serde(default = "Config::default_ca_url")]
+    pub ca_url: Url,
     /// The client ID in KeyCloak
     #[serde(default = "Config::default_client_id")]
     pub client_id: String,
@@ -30,23 +27,17 @@ pub struct Config {
 }
 
 impl Config {
-    fn default_keycloak_url() -> Url {
-        #[allow(clippy::expect_used)]
-        "https://keycloak.isambard.ac.uk/realms/isambard/"
-            .parse()
-            .expect("Default KeyCloak path does not parse")
-    }
     fn default_open_browser() -> bool {
         true
     }
     fn default_show_qr() -> bool {
         true
     }
-    fn default_waldur_api_url() -> Url {
+    fn default_ca_url() -> Url {
         #[allow(clippy::expect_used)]
-        "https://portal-api.isambard.ac.uk/"
+        "https://ca.isambard.ac.uk/"
             .parse()
-            .expect("Default Waldur API path does not parse")
+            .expect("Default CA URL does not parse")
     }
     fn default_client_id() -> String {
         "clifton".to_string()

@@ -51,6 +51,13 @@ pub fn read_file<P: AsRef<std::path::Path>>(file: P) -> Result<String> {
     Ok(std::fs::read_to_string(path)?)
 }
 
+/// Delete a file from the cache
+pub fn delete_file<P: AsRef<std::path::Path>>(file: P) -> Result<()> {
+    let cache_dir = cache_dir()?;
+    let path = cache_dir.join(file);
+    std::fs::remove_file(path).context("Could not delete cache file.")
+}
+
 /// Delete the entire cache directory
 pub fn delete_all() -> Result<()> {
     std::fs::remove_dir_all(cache_dir()?).context("Could not delete cache directory.")

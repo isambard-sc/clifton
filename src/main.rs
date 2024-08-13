@@ -3,11 +3,10 @@
 
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, Parser, Subcommand};
-use md5::Digest;
 use serde::{Deserialize, Serialize};
-use std::io::IsTerminal;
+use std::{collections::HashMap, io::IsTerminal};
 
-use crate::auth::get_api_key;
+use crate::auth::get_keycloak_token;
 
 pub mod auth;
 pub mod cache;
@@ -25,12 +24,9 @@ fn version() -> &'static str {
 #[derive(Deserialize)]
 struct CertificateSignResponse {
     certificate: ssh_key::Certificate,
-    #[serde(with = "http_serde::authority")]
-    hostname: http::uri::Authority,
-    #[serde(with = "http_serde::authority")]
-    proxy_jump: http::uri::Authority,
-    service: String,
-    projects: Vec<ProjectDetails>,
+    platforms: Platforms,
+    projects: Projects,
+    short_name: String,
     user: String,
     #[serde(
         deserialize_with = "CertificateSignResponse::check_version",
@@ -41,7 +37,7 @@ struct CertificateSignResponse {
 
 impl CertificateSignResponse {
     /// The version of the response that the portal should return.
-    const VERSION: u32 = 1;
+    const VERSION: u32 = 2;
     fn check_version<'de, D>(deserializer: D) -> Result<u32, D::Error>
     where
         D: serde::Deserializer<'de>,
@@ -57,31 +53,34 @@ impl CertificateSignResponse {
     }
 }
 
-#[derive(Deserialize, Serialize)]
-struct ProjectDetails {
-    short_name: String,
-    username: String,
+type Projects = HashMap<String, Vec<String>>;
+
+type Platforms = HashMap<String, Platform>;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct Platform {
+    alias: String,
+    #[serde(with = "http_serde::authority")]
+    hostname: http::uri::Authority,
+    #[serde(with = "http_serde::option::authority")]
+    proxy_jump: Option<http::uri::Authority>,
 }
 
 #[derive(Deserialize, Serialize)]
 struct CertificateConfigCache {
-    #[serde(with = "http_serde::authority")]
-    hostname: http::uri::Authority,
-    #[serde(with = "http_serde::authority")]
-    proxy_jump: http::uri::Authority,
-    service: String,
-    projects: Vec<ProjectDetails>,
+    platforms: Platforms,
+    projects: Projects,
     user: String,
+    short_name: String,
     identity: std::path::PathBuf,
 }
 
 impl CertificateConfigCache {
     fn from_reponse(r: CertificateSignResponse, identity: std::path::PathBuf) -> Self {
         CertificateConfigCache {
-            hostname: r.hostname,
-            proxy_jump: r.proxy_jump,
-            service: r.service,
+            platforms: r.platforms,
             projects: r.projects,
+            short_name: r.short_name,
             user: r.user,
             identity,
         }
@@ -130,6 +129,8 @@ enum Commands {
     SshCommand {
         /// The short name of the project to provide the command for
         project: String,
+        /// The platform to access the project on
+        platform: Option<String>,
     },
     /// Empty the cache
     #[command(hide = true)]
@@ -248,6 +249,15 @@ fn main() -> Result<()> {
                 );
             }
 
+            let issuer: url::Url = reqwest::blocking::get(format!("{}issuer", &config.ca_url))
+                .context("Could not parse CA issuer URL.")?
+                .error_for_status()
+                .context("Could not get CA issuer URL")?
+                .text()
+                .context("Could not parse CA issuer URL reponse as text.")?
+                .parse()
+                .context("Could not parse CA issuer URL as URL.")?;
+
             let cert_file_path = identity_file.with_file_name(
                 [
                     identity_file
@@ -257,27 +267,40 @@ fn main() -> Result<()> {
                 ]
                 .join(std::ffi::OsStr::new("")),
             );
-            let key_cache_path = "waldur_api_key";
+            let token_cache_path = "token";
             // Try to load the Waldur API key from the cache
             println!(
                 "Retrieving certificate for identity `{}`.",
                 &identity_file.display()
             );
-            let cert = cache::read_file(key_cache_path)
+            let cert = cache::read_file(token_cache_path)
                 .ok()
-                .and_then(|api_key| {
+                .and_then(|token| {
                     // If it's there, try to use it
-                    get_cert(&identity, &config.waldur_api_url, &api_key).ok()
+                    get_cert(&identity, &config.ca_url, &token).ok()
                 })
                 .map_or_else(
                     || {
                         // If the certificate could not be fetched, renew the API token
-                        let api_key = get_api_key(&config, key_cache_path, open_browser, show_qr)?;
-                        get_cert(&identity, &config.waldur_api_url, &api_key)
+                        let token = get_keycloak_token(
+                            &config.client_id,
+                            &issuer,
+                            open_browser,
+                            show_qr,
+                            token_cache_path,
+                        )?;
+                        get_cert(&identity, &config.ca_url, token.secret())
                     },
                     Ok,
                 )
-                .context("Could not get certificate.")?;
+                .context("Could not get certificate.");
+            let cert = match cert {
+                Ok(cert) => cert,
+                Err(e) => {
+                    cache::delete_file(cert_details_file_name).unwrap_or_default();
+                    anyhow::bail!(e)
+                }
+            };
             std::fs::write(
                 &cert_file_path,
                 format!(
@@ -292,32 +315,26 @@ fn main() -> Result<()> {
             let green = anstyle::Style::new()
                 .fg_color(Some(anstyle::AnsiColor::Green.into()))
                 .bold();
-            match cert.projects.as_slice() {
-                [] => {
+            match cert.projects.len() {
+                0 => {
                     anyhow::bail!("Did not authenticate with any projects.")
                 }
-                [p] => {
-                    println!(
-                        "{green}Authenticated as {} for project {}{green:#}\n",
-                        &cert.user, p.short_name
-                    );
-                }
-                projects => {
-                    let projects = projects
-                        .iter()
-                        .map(|p| format!(" - {}", &p.short_name))
+                _ => {
+                    let projects = cert
+                        .projects
+                        .keys()
+                        .map(|p| format!(" - {}", &p))
                         .collect::<Vec<_>>()
                         .join("\n");
                     println!(
-                        "{green}Successfully authenticated as {} and downloaded SSH certificate for projects{green:#}:\n{projects}\n",
-                        &cert.user
+                        "{green}Successfully authenticated as {} ({}) and downloaded SSH certificate for projects{green:#}:\n{projects}\n",
+                        &cert.user, &cert.short_name
                     );
                 }
             }
             type Tz = chrono::offset::Utc; // TODO This is UNIX time, not UTC
             let valid_before: chrono::DateTime<Tz> = cert.certificate.valid_before_time().into();
             let valid_for = valid_before - Tz::now();
-            // TODO delete cache on failed auth
             cache::write_file(
                 cert_details_file_name,
                 serde_json::to_string(&CertificateConfigCache::from_reponse(
@@ -343,28 +360,75 @@ fn main() -> Result<()> {
                 )?,
             )
             .context("Could not parse certificate details cache. Try rerunning `clifton auth`.")?;
-            let jump_alias = format!("jump.{}", &f.service);
-            let jump_config = format!(
-                "Host {}\n\tHostname {}\n\tIdentityFile {}\n\tCertificateFile {}-cert.pub\n\n",
-                &jump_alias,
-                f.proxy_jump,
-                f.identity.display(),
-                f.identity.display(),
-            );
-            let alias_configs = f.projects.iter().map(|p| {
-                let host_alias = format!("{}.{}", &p.short_name, &f.service);
-                let host_config = format!(
-                    "Host {}\n\tHostname {}\n\tProxyJump %r@{}\n\tUser {}\n\tIdentityFile {}\n\tCertificateFile {}-cert.pub\n\tAddKeysToAgent yes\n",
-                    &host_alias,
-                    f.hostname,
-                    &jump_alias,
-                    p.username,
-                    f.identity.display(),
-                    f.identity.display(),
-                );
-                Ok(host_config)
-            }).collect::<Result<Vec<_>>>()?;
-            let config = jump_config + &alias_configs.join("\n");
+            let jump_configs = f
+                .platforms
+                .values()
+                .map(|c| {
+                    if let Some(proxy_jump) = &c.proxy_jump {
+                        let jump_alias = format!("jump.{}", &c.alias);
+                        let jump_config = format!(
+                            "Host {jump_alias}\n\
+                                \tHostname {}\n\
+                                \tIdentityFile {1}\n\
+                                \tCertificateFile {1}-cert.pub\n\
+                            \n",
+                            proxy_jump,
+                            f.identity.display(),
+                        );
+                        let host_config = format!(
+                            "Host *.{} !{jump_alias}\n\
+                                \tHostname {}\n\
+                                \tProxyJump %r@{}\n\
+                                \tIdentityFile {3}\n\
+                                \tCertificateFile {3}-cert.pub\n\
+                                \tAddKeysToAgent yes\n\
+                            \n",
+                            &c.alias,
+                            &c.hostname,
+                            &jump_alias,
+                            f.identity.display(),
+                        );
+                        format!("{}{}", jump_config, host_config)
+                    } else {
+                        format!(
+                            "Host *.{}\n\
+                                \tHostname {}\n\
+                                \tIdentityFile {2}\n\
+                                \tCertificateFile {2}-cert.pub\n\
+                                \tAddKeysToAgent yes\n\
+                            \n",
+                            &c.alias,
+                            &c.hostname,
+                            f.identity.display(),
+                        )
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n");
+            let alias_configs = f
+                .projects
+                .iter()
+                .map(|(project, platforms)| {
+                    let project_configs = platforms.iter().map(|platform| {
+                        let project_alias = format!(
+                            "{}.{}",
+                            &project,
+                            &f.platforms
+                                .get(platform)
+                                .context("Could not find platform {platform} in config.")?
+                                .alias
+                        );
+                        let project_config = format!(
+                            "Host {project_alias}\n\
+                            \tUser {}.{}\n",
+                            &f.short_name, &project,
+                        );
+                        Ok(project_config)
+                    });
+                    Ok(project_configs.collect::<Result<Vec<String>>>()?.join("\n"))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let config = jump_configs + &alias_configs.join("\n");
             match command {
                 Some(SshConfigCommands::Write { ssh_config }) => {
                     let ssh_config = shellexpand::path::tilde(ssh_config);
@@ -385,8 +449,19 @@ fn main() -> Result<()> {
                         &ssh_config.display(),
                         &f.projects
                             .iter()
-                            .map(|p| format!("{}.{}", &p.short_name, &f.service))
-                            .collect::<Vec<_>>()
+                            .flat_map(|(project, platforms)| {
+                                platforms.iter().map(|platform| {
+                                    Ok(format!(
+                                        "{}.{}",
+                                        project.clone(),
+                                        &f.platforms
+                                            .get(platform)
+                                            .context("Could not find platform {platform} in config.")?
+                                            .alias
+                                    ))
+                                })
+                            })
+                            .collect::<Result<Vec<_>>>()?
                             .join("\n - "),
                     );
                 }
@@ -398,20 +473,50 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Some(Commands::SshCommand { project }) => {
-            let f: CertificateConfigCache =
-                serde_json::from_str(&cache::read_file(cert_details_file_name).context(
+        Some(Commands::SshCommand { project, platform }) => {
+            let f: CertificateConfigCache = serde_json::from_str(
+                &cache::read_file(cert_details_file_name).context(
                     "Could not read certificate details cache. Have you run `clifton auth`?",
-                )?)
-                .context("Could not parse certificate details cache.")?;
-            if let Some(p) = &f.projects.iter().find(|p| &p.short_name == project) {
+                )?,
+            )
+            .context("Could not parse certificate details cache. Try rerunning `clifton auth`.")?;
+            if let Some((_, s)) = &f.projects.iter().find(|(p_name, _)| p_name == &project) {
+                let platform_name = match s.as_slice() {
+                    [] => Err(anyhow::anyhow!("No platforms found for requested project.")),
+                    [p] => Ok(p),
+                    platforms => {
+                        if let Some(platform) = platform {
+                            if platforms.contains(platform) {
+                                Ok(platform)
+                            } else {
+                                Err(anyhow::anyhow!("No match."))
+                            }
+                        } else {
+                            Err(anyhow::anyhow!(
+                                "Ambiguous project. \
+                                It's available on platforms {platforms:?}. \
+                                Try specifying the platform with `clifton ssh-command {project} <PLATFORM>`"
+                            ))
+                        }
+                    }
+                }
+                .context("Could not get platform.")?;
+                let platform = f
+                    .platforms
+                    .get(platform_name)
+                    .context(format!("Could not find {} in platforms.", platform_name))?;
                 let line = format!(
-                    "ssh -J '%r@{}' -i '{}' -o 'CertificateFile {}-cert.pub' -o 'AddKeysToAgent yes' {}@{}",
-                    &f.proxy_jump,
+                    "ssh {}-i '{}' -o 'CertificateFile {}-cert.pub' -o 'AddKeysToAgent yes' {}.{}@{}",
+                    if let Some(j) = &platform.proxy_jump {
+                        format!("-J '%r@{}' ", j)
+                    } else {
+                        " ".to_string()
+                    },
                     f.identity.display(),
                     f.identity.display(),
-                    &p.username,
-                    &f.hostname,
+                    &f.short_name,
+                    &project,
+                    &platform.hostname,
                 );
                 if std::io::stdout().is_terminal() {
                     // OpenSSH does not seem to offer the certificate to the jump host
@@ -435,36 +540,26 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-/// Waldur uses old MD5 fingerprints so we must convert to that format
-fn fingerprint_md5(key: &ssh_key::PrivateKey) -> Result<String> {
-    let mut sh = md5::Md5::default();
-    sh.update(key.public_key().to_bytes()?);
-    let md5: Vec<String> = sh.finalize().iter().map(|n| format!("{n:02x}")).collect();
-    Ok(md5.join(":"))
-}
-
 /// Get a signed certificate from Waldur
 fn get_cert(
     identity: &ssh_key::PrivateKey,
     api_url: &url::Url,
     token: &String,
 ) -> Result<CertificateSignResponse> {
-    let fingerprint =
-        fingerprint_md5(identity).context("Could not calculate the MD5 hash of the fingerprint")?;
     let cert_r = reqwest::blocking::Client::new()
-        .get(format!("{api_url}api/users/me/cert/"))
+        .get(format!("{api_url}sign"))
         .query(&[
-            ("fingerprint", fingerprint),
+            ("public_key", identity.public_key().to_string()),
             ("clifton-version", version().to_string()),
         ])
         .header("Accept", "application/json")
-        .header("Authorization", format!("Token {token}"))
+        .header("Authorization", format!("Bearer {token}"))
         .send()
-        .context("Could not get certificate from Waldur.")?;
+        .context("Could not get certificate from CA.")?;
     if cert_r.status().is_success() {
         let cert = cert_r
             .json::<CertificateSignResponse>()
-            .context("Could not parse certificate response from Waldur. This could be caused by an outdated version of Clifton.")?;
+            .context("Could not parse certificate response from CA. This could be caused by an outdated version of Clifton.")?;
         Ok(cert)
     } else {
         anyhow::bail!(cert_r.text().context("Could not get error message.")?);
@@ -502,22 +597,35 @@ mod tests {
         };
 
         let mock = server
-            .mock("GET", "/api/users/me/cert/")
+            .mock("GET", "/sign")
             .match_query(Matcher::UrlEncoded(
-                "fingerprint".into(),
-                fingerprint_md5(&private_key)?,
+                "public_key".into(),
+                private_key.public_key().to_string(),
             ))
             .with_status(200)
             .with_header("content-type", "text/json")
             .with_body(
                 json!({
-                    "service": "foo",
+                    "platforms": {
+                        "plat1": {
+                            "alias": "1.example",
+                            "hostname": "1.example.com",
+                            "proxy_jump": "jump.example.com"
+                        }
+                    },
+                    "short_name": "nobody",
                     "certificate": certificate,
-                    "hostname": "example.com",
-                    "proxy_jump": "jump.example.com",
-                    "projects": [],
+                    "projects": {
+                        "proj1": [
+                            "plat1",
+                            "plat2",
+                        ],
+                        "proj2": [
+                            "plat1",
+                        ]
+                    },
                     "user": "nobody@example.com",
-                    "version": 1,
+                    "version": 2,
                 })
                 .to_string(),
             )
