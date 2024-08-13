@@ -9,22 +9,17 @@ use oauth2::{
 };
 use oauth2::{AccessToken, TokenResponse as _};
 use qrcode::{render::unicode, QrCode};
-use serde::Deserialize;
 use url::Url;
 
-use crate::{cache, config};
-
-#[derive(Deserialize)]
-struct Token {
-    token: String,
-}
+use crate::cache;
 
 /// Given an OAuth `client_id` and URL, authenticate with the device code workflow
-pub fn get_keycloak_token(
+pub fn get_keycloak_token<P: AsRef<std::path::Path>>(
     client_id: &String,
     issuer_url: &Url,
     open_webpage: bool,
     show_qr: bool,
+    token_cache_path: P,
 ) -> Result<AccessToken> {
     let client_id = ClientId::new(client_id.to_string());
     let client_secret = None;
@@ -77,40 +72,6 @@ pub fn get_keycloak_token(
         .request(http_client, std::thread::sleep, None)
         .context("Could not get token from KeyCloak.")?;
 
+    cache::write_file(token_cache_path, token.access_token().secret())?;
     Ok(token.access_token().clone())
-}
-
-/// Using the token from KeyCloak, ask Waldur for an API token
-pub fn get_waldur_token(waldur_api_url: &Url, kc_token: &AccessToken) -> Result<String> {
-    let url = format!("{waldur_api_url}api-auth/keycloak/");
-    let r = reqwest::blocking::Client::new()
-        .get(url)
-        .header("Accept", "application/json")
-        .header(
-            reqwest::header::AUTHORIZATION,
-            format!("Bearer {}", kc_token.secret()),
-        )
-        .send()?;
-    Ok(r.json::<Token>()?.token)
-}
-
-/// Do the full authentication pathway with OAuth and Waldur to get
-/// the Waldur API token. Finally, cache it.
-pub fn get_api_key<P: AsRef<std::path::Path>>(
-    config: &config::Config,
-    key_cache_path: P,
-    open_browser: bool,
-    show_qr: bool,
-) -> Result<String, anyhow::Error> {
-    let kc_token = get_keycloak_token(
-        &config.client_id,
-        &config.keycloak_url,
-        open_browser,
-        show_qr,
-    )
-    .context("Could not get OAuth token.")?;
-    let api_key = get_waldur_token(&config.waldur_api_url, &kc_token)
-        .context("Could not get Waldur API token.")?;
-    cache::write_file(key_cache_path, api_key.as_bytes())?;
-    Ok(api_key)
 }
