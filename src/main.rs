@@ -202,8 +202,23 @@ fn main() -> Result<()> {
                     &identity_file.display(),
                 ))
             }
-            let identity = ssh_key::PrivateKey::read_openssh_file(&identity_file)
-                .context("Could not read SSH identity file")?;
+            let identity = match ssh_key::PrivateKey::read_openssh_file(&identity_file) {
+                Ok(i) => i,
+                Err(e) => {
+                    match e {
+                        ssh_key::Error::Encoding(_) | ssh_key::Error::FormatEncoding => {
+                            if identity_file.extension().is_some_and(|e| e == "pub") {
+                                anyhow::bail!(anyhow::anyhow!(e).context("Could not decode the private key. Most likely this is caused by you passing your *public* key instead of your *private* key."))
+                            } else {
+                                anyhow::bail!(anyhow::anyhow!(e).context("Could not decode the private key. Most likely this is caused by you trying to read an RSA key stored in an old format. Try generating a new key."))
+                            }
+                        }
+                        _ => anyhow::bail!(
+                            anyhow::anyhow!(e).context("Could not read SSH identity file.")
+                        ),
+                    };
+                }
+            };
 
             if !identity.is_encrypted() {
                 eprintln!(
