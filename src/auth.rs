@@ -24,6 +24,7 @@ pub fn get_keycloak_token(
     client_id: &String,
     issuer_url: &Url,
     open_webpage: bool,
+    show_qr: bool,
 ) -> Result<AccessToken> {
     let client_id = ClientId::new(client_id.to_string());
     let client_secret = None;
@@ -58,12 +59,14 @@ pub fn get_keycloak_token(
         }
     }
     println!("Open this URL in your browser:\n{verification_uri_complete}");
-    let qr = QrCode::new(verification_uri_complete)?
-        .render::<unicode::Dense1x2>()
-        .light_color(unicode::Dense1x2::Light)
-        .dark_color(unicode::Dense1x2::Dark)
-        .build();
-    println!("Or scan this QR code:\n{qr}");
+    if show_qr {
+        let qr = QrCode::new(verification_uri_complete)?
+            .render::<unicode::Dense1x2>()
+            .light_color(unicode::Dense1x2::Light)
+            .dark_color(unicode::Dense1x2::Dark)
+            .build();
+        println!("Or scan this QR code:\n{qr}");
+    }
 
     // Now poll for the token
     let token = device_client
@@ -94,9 +97,15 @@ pub fn get_api_key<P: AsRef<std::path::Path>>(
     config: &config::Config,
     key_cache_path: P,
     open_browser: bool,
+    show_qr: bool,
 ) -> Result<String, anyhow::Error> {
-    let kc_token = get_keycloak_token(&config.client_id, &config.keycloak_url, open_browser)
-        .context("Could not get OAuth token.")?;
+    let kc_token = get_keycloak_token(
+        &config.client_id,
+        &config.keycloak_url,
+        open_browser,
+        show_qr,
+    )
+    .context("Could not get OAuth token.")?;
     let api_key = get_waldur_token(&config.waldur_api_url, &kc_token)
         .context("Could not get Waldur API token.")?;
     cache::write_file(key_cache_path, api_key.as_bytes())?;

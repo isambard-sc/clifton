@@ -114,6 +114,9 @@ enum Commands {
         /// Should the browser be opened automatically
         #[arg(long)] // See https://github.com/clap-rs/clap/issues/815 for tracking issue
         open_browser: Option<bool>,
+        /// Should the QR code be shown on the screen
+        #[arg(long)]
+        show_qr: Option<bool>,
     },
     /// Display the OpenSSH config
     SshConfig {
@@ -186,8 +189,10 @@ fn main() -> Result<()> {
         Some(Commands::Auth {
             identity,
             open_browser,
+            show_qr,
         }) => {
             let open_browser = open_browser.unwrap_or(config.open_browser);
+            let show_qr = show_qr.unwrap_or(config.show_qr);
 
             // Load the user's public key
             let identity_file = shellexpand::path::tilde(
@@ -251,7 +256,7 @@ fn main() -> Result<()> {
                 .map_or_else(
                     || {
                         // If the certificate could not be fetched, renew the API token
-                        let api_key = get_api_key(&config, key_cache_path, open_browser)?;
+                        let api_key = get_api_key(&config, key_cache_path, open_browser, show_qr)?;
                         get_cert(&identity, &config.waldur_api_url, &api_key)
                     },
                     Ok,

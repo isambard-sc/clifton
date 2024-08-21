@@ -6,9 +6,12 @@ use url::Url;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Config {
-    /// Should the browser be authomatically opened when authenticating
+    /// Should the browser be automatically opened when authenticating
     #[serde(default = "Config::default_open_browser")]
     pub open_browser: bool,
+    /// Should the QR code be shown then authenticating
+    #[serde(default = "Config::default_show_qr")]
+    pub show_qr: bool,
     /// The URL of the KeyCloak instance
     #[serde(default = "Config::default_keycloak_url")]
     pub keycloak_url: Url,
@@ -31,6 +34,9 @@ impl Config {
             .expect("Default KeyCloak path does not parse")
     }
     fn default_open_browser() -> bool {
+        true
+    }
+    fn default_show_qr() -> bool {
         true
     }
     fn default_waldur_api_url() -> Url {
