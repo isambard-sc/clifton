@@ -108,7 +108,7 @@ struct Args {
 enum Commands {
     /// Authenticate and retrieve signed SSH certificate
     Auth {
-        /// The SSH identity (private key) to use. Should be a path like ~/.ssh/id_id_ed25519
+        /// The SSH identity (private key) to use. Should be a path like ~/.ssh/id_ed25519
         #[arg(short = 'i', long)]
         identity: Option<std::path::PathBuf>,
         /// Should the browser be opened automatically
