@@ -22,7 +22,7 @@ md-5 = { version = "0.10.6", default-features = false }
 oauth2 = { version = "4.4.2", default-features = false, features = ["reqwest", "rustls-tls"] }
 qrcode = { version = "0.14.1", default-features = false }
 reqwest = { version = "0.11.0", default-features = false, features = ["json", "blocking", "rustls-tls"] }
-serde = { version = "1.0.204", default-features = false }
+serde = { version = "1.0.209", default-features = false }
 serde_json = { version = "1.0", default-features = false }
 shellexpand = { version = "3.1.0", default-features = false, features = ["base-0", "dirs", "path", "tilde"] }
 ssh-key = { version = "0.6.6", default-features = false, features = ["std", "serde"] }
