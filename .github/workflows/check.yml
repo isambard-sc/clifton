@@ -55,6 +55,12 @@ jobs:
           - target: "aarch64-unknown-linux-gnu"
             os: "ubuntu-latest"
             cross: true
+          - target: "x86_64-unknown-linux-musl"
+            os: "ubuntu-latest"
+            cross: false
+          - target: "aarch64-unknown-linux-musl"
+            os: "ubuntu-latest"
+            cross: true
           - target: "x86_64-pc-windows-gnu"
             os: "ubuntu-latest"
             cross: true
@@ -70,7 +76,7 @@ jobs:
           ref: ${{ inputs.ref }}
       - name: install MUSL
         if: contains(matrix.target, 'musl')
-        run: apt install musl-tool
+        run: sudo apt install musl-tools
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@v1
         with:

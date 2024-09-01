@@ -35,6 +35,18 @@ jobs:
             output: clifton
             asset-name: clifton-linux-aarch64
             compress-binary: true
+          - target: "x86_64-unknown-linux-musl"
+            os: "ubuntu-latest"
+            cross: false
+            output: clifton
+            asset-name: clifton-linux-musl-x86_64
+            compress-binary: true
+          - target: "aarch64-unknown-linux-musl"
+            os: "ubuntu-latest"
+            cross: true
+            output: clifton
+            asset-name: clifton-linux-musl-aarch64
+            compress-binary: true
           - target: "x86_64-pc-windows-gnu"
             os: "ubuntu-latest"
             cross: true
@@ -60,7 +72,7 @@ jobs:
           fetch-depth: 0  # This is needed so that git-describe works properly to set the version
       - name: install MUSL
         if: contains(matrix.target, 'musl')
-        run: apt install musl-tool
+        run: sudo apt install musl-tools
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
