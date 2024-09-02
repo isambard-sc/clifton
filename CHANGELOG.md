@@ -6,12 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Unreleased
 
+### Added
+- Allow disabling the QR code display
+
 ## [0.1.2] - 2024-08-16
 ### Fixed
 - Provide a better error message when passing an old format RSA key.
-
-### Added
-- Allow disabling the QR code display
 
 ## [0.1.1] - 2024-08-07
 ### Added
