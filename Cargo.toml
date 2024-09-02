@@ -3,7 +3,7 @@
 
 [package]
 name = "clifton"
-version = "0.1.2"
+version = "0.1.3"
 description = "An SSH connection manager"
 edition = "2021"
 build = "build.rs"
