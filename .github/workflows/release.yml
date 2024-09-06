@@ -152,19 +152,28 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pages: write
+      id-token: write
     steps:
       - name: Fetch release artefacts
         uses: actions/download-artifact@v4
         with:
           pattern: clifton-*
           merge-multiple: true
-      - run: pwd
-      - run: ls -l
-      - run: ls "${GITHUB_WORKSPACE}"
-      - run: tree
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.tag-release.outputs.ref }}
           files: clifton-*
           body: ${{ needs.tag-release.outputs.changelog }}
+      - name: Make release data file
+        run: |
+          mkdir site
+          echo '[{"version" : "'${{ needs.tag-release.outputs.ref }}'", "date" : "'$(date --iso-8601)'"}]' > site/releases
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
