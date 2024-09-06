@@ -12,6 +12,7 @@ use crate::auth::get_api_key;
 pub mod auth;
 pub mod cache;
 pub mod config;
+mod version;
 
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
@@ -182,6 +183,18 @@ fn main() -> Result<()> {
         Ok(config_string) => toml::from_str(&config_string)?,
         Err(_) => toml::from_str("")?,
     };
+
+    if config.check_version {
+        let grace_days = 2;
+        if let Err(e) = version::check_for_new_version(
+            "https://isambard-sc.github.io/clifton/releases".parse()?,
+            grace_days,
+        )
+        .context("Failed to check for new version of Clifton.")
+        {
+            eprintln!("{:}", &e);
+        }
+    }
 
     let cert_details_file_name = "cert.json";
 

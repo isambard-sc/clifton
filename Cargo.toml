@@ -23,6 +23,7 @@ oauth2 = { version = "4.4", default-features = false, features = ["reqwest", "ru
 qrcode = { version = "0.14", default-features = false }
 reqwest = { version = "0.11", default-features = false, features = ["json", "blocking", "rustls-tls"] }
 serde = { version = "1.0", default-features = false }
+semver = { version = "1.0", default-features = false, features = ["serde", "std"] }
 serde_json = { version = "1.0", default-features = false }
 shellexpand = { version = "3.1", default-features = false, features = ["base-0", "dirs", "path", "tilde"] }
 ssh-key = { version = "0.6", default-features = false, features = ["std", "serde"] }
