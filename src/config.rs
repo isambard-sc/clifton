@@ -24,6 +24,9 @@ pub struct Config {
     /// The default location of the identity to use
     #[serde(default = "Config::default_identity")]
     pub identity: Option<std::path::PathBuf>,
+    /// Should Clifton check for version updates
+    #[serde(default = "Config::default_check_version")]
+    pub check_version: bool,
 }
 
 impl Config {
@@ -59,5 +62,8 @@ impl Config {
                     .join(t)
             })
             .find(|i| i.try_exists().unwrap_or(false))
+    }
+    fn default_check_version() -> bool {
+        true
     }
 }
