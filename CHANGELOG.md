@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ## Unreleased
 ### Added
 - Notify when a new version of Clifton has been released.
+- Add hidden command `clifton clear-cache` to delete the cache folder.
 
 ## [0.1.3] - 2024-09-02
 ### Added

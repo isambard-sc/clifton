@@ -131,6 +131,9 @@ enum Commands {
         /// The short name of the project to provide the command for
         project: String,
     },
+    /// Empty the cache
+    #[command(hide = true)]
+    ClearCache,
 }
 
 #[derive(Subcommand)]
@@ -416,6 +419,7 @@ fn main() -> Result<()> {
                 ))
             }
         }
+        Some(Commands::ClearCache) => cache::delete_all()?,
         None => Args::command().print_help()?,
     }
 

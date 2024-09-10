@@ -50,3 +50,8 @@ pub fn read_file<P: AsRef<std::path::Path>>(file: P) -> Result<String> {
     let path = cache_dir.join(file);
     Ok(std::fs::read_to_string(path)?)
 }
+
+/// Delete the entire cache directory
+pub fn delete_all() -> Result<()> {
+    std::fs::remove_dir_all(cache_dir()?).context("Could not delete cache directory.")
+}
