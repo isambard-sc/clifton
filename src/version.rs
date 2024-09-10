@@ -25,11 +25,17 @@ pub fn check_for_new_version(url: url::Url, grace_days: i64) -> Result<()> {
     if release.version > version()? && release.since().num_days() >= grace_days {
         eprintln!(
             "There is a new version of Clifton available. \
-            {} was released {} days ago.",
+            {} was released {} days ago. \
+            Visit https://github.com/isambard-sc/clifton/releases/tag/{0} to download it.",
             &release.version,
             &release.since().num_days()
         );
-        return Err(anyhow::anyhow!("foo"));
+        if release.version.major > version()?.major {
+            eprintln!(
+                "The new version is a major update. \
+                Your current version may stop working if you do not upgrade."
+            );
+        }
     }
     Ok(())
 }
