@@ -17,7 +17,10 @@ impl Release {
 }
 
 fn version() -> Result<semver::Version> {
-    Ok(crate::version().parse()?)
+    Ok(crate::version().parse().context(format!(
+        "Could not parse version number '{}'",
+        crate::version()
+    ))?)
 }
 
 pub fn check_for_new_version(url: url::Url, grace_days: i64) -> Result<()> {
@@ -87,7 +90,7 @@ mod tests {
             "100.0.0".parse().context("Could not parse version.")?
         );
         assert_eq!(r.since().num_days(), 5);
-        assert!(check_for_new_version(url.clone(), 2).is_err());
+        check_for_new_version(url.clone(), 2)?;
         mock.assert();
         Ok(())
     }
