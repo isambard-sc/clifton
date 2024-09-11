@@ -289,13 +289,16 @@ fn main() -> Result<()> {
                 ),
             )
             .context("Could not write certificate file.")?;
+            let green = anstyle::Style::new()
+                .fg_color(Some(anstyle::AnsiColor::Green.into()))
+                .bold();
             match cert.projects.as_slice() {
                 [] => {
                     anyhow::bail!("Did not authenticate with any projects.")
                 }
                 [p] => {
                     println!(
-                        "Authenticated as {} for project {}\n",
+                        "{green}Authenticated as {} for project {}{green:#}\n",
                         &cert.user, p.short_name
                     );
                 }
@@ -306,8 +309,8 @@ fn main() -> Result<()> {
                         .collect::<Vec<_>>()
                         .join("\n");
                     println!(
-                        "Authenticated as {} for projects:\n{}\n",
-                        &cert.user, projects
+                        "{green}Successfully authenticated as {} and downloaded SSH certificate for projects{green:#}:\n{projects}\n",
+                        &cert.user
                     );
                 }
             }
