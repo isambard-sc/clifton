@@ -17,10 +17,10 @@ impl Release {
 }
 
 fn version() -> Result<semver::Version> {
-    Ok(crate::version().parse().context(format!(
+    crate::version().parse().context(format!(
         "Could not parse version number '{}'",
         crate::version()
-    ))?)
+    ))
 }
 
 pub fn check_for_new_version(url: url::Url, grace_days: i64) -> Result<()> {
