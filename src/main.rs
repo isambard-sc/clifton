@@ -278,6 +278,17 @@ fn main() -> Result<()> {
                     Ok,
                 )
                 .context("Could not get certificate.")?;
+            std::fs::write(
+                &cert_file_path,
+                format!(
+                    "{}\n",
+                    &cert
+                        .certificate
+                        .to_openssh()
+                        .context("Could not convert certificate to OpenSSH format.")?
+                ),
+            )
+            .context("Could not write certificate file.")?;
             match cert.projects.as_slice() {
                 [] => {
                     anyhow::bail!("Did not authenticate with any projects.")
@@ -300,17 +311,6 @@ fn main() -> Result<()> {
                     );
                 }
             }
-            std::fs::write(
-                &cert_file_path,
-                format!(
-                    "{}\n",
-                    &cert
-                        .certificate
-                        .to_openssh()
-                        .context("Could not convert certificate to OpenSSH format.")?
-                ),
-            )
-            .context("Could not write certificate file.")?;
             type Tz = chrono::offset::Utc; // TODO This is UNIX time, not UTC
             let valid_before: chrono::DateTime<Tz> = cert.certificate.valid_before_time().into();
             let valid_for = valid_before - Tz::now();
