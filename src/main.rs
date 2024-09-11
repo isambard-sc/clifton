@@ -329,6 +329,9 @@ fn main() -> Result<()> {
                 valid_for.num_minutes() % 60,
             );
             println!("Certificate file written to {}", &cert_file_path.display());
+            println!(
+                "You may now want to run `clifton ssh-config write` to configure your SSH config aliases."
+            );
         }
         Some(Commands::SshConfig { command }) => {
             let f: CertificateConfigCache = serde_json::from_str(
