@@ -30,10 +30,13 @@ pub fn get_keycloak_token(
     let client_secret = None;
 
     // TODO get these from https://{keycloak}/realms/{realm}/.well-known/openid-configuration
-    let auth_url = AuthUrl::from_url(issuer_url.join("protocol/openid-connect/auth/device")?);
-    let token_url = TokenUrl::from_url(issuer_url.join("protocol/openid-connect/token")?);
-    let device_auth_url =
-        DeviceAuthorizationUrl::from_url(issuer_url.join("protocol/openid-connect/auth/device")?);
+    let auth_url =
+        AuthUrl::from_url(format!("{issuer_url}/protocol/openid-connect/auth/device").parse()?);
+    let token_url =
+        TokenUrl::from_url(format!("{issuer_url}/protocol/openid-connect/token").parse()?);
+    let device_auth_url = DeviceAuthorizationUrl::from_url(
+        format!("{issuer_url}/protocol/openid-connect/auth/device").parse()?,
+    );
 
     // Set up the config for the Keycloak OAuth2 process.
     let device_client = BasicClient::new(client_id, client_secret, auth_url, Some(token_url))
