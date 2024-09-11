@@ -177,7 +177,7 @@ fn main() -> Result<()> {
         Some(f) => match f.try_exists() {
             Ok(true) => shellexpand::path::tilde(f),
             Ok(false) => anyhow::bail!(format!("Config file `{}` not found.", &f.display())),
-            Err(err) => return Err(err).context("Could not dertmine if config file exists."),
+            Err(err) => return Err(err).context("Could not determine if config file exists."),
         },
         None => default_config_path().into(),
     };
