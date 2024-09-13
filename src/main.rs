@@ -404,7 +404,7 @@ fn main() -> Result<()> {
                     }
                 })
                 .collect::<Vec<String>>()
-                .join("\n");
+                .join("");
             let alias_configs = f
                 .projects
                 .iter()
