@@ -44,7 +44,12 @@ pub fn check_for_new_version(url: url::Url, grace_days: i64) -> Result<()> {
 }
 
 fn get_latest_release(url: url::Url) -> Result<Release> {
-    let releases: Vec<Release> = reqwest::blocking::get(url)
+    let releases: Vec<Release> = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_secs(5))
+        .build()
+        .context("Could not build HTTP client.")?
+        .get(url)
+        .send()
         .context("Could not get list of released versions.")?
         .json()
         .context("Could not parse JSON response.")?;

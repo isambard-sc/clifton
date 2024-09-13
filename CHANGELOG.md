@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Changed
 - Use the new [Conch](https://github.com/isambard-sc/conch/) CA
 - Only write the SSH config if the contents has actually changed.
+- Shorten the timeout for version check to 5 seconds.
 
 ## [0.1.4] - 2024-09-10
 ### Added
