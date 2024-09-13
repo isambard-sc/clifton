@@ -582,8 +582,8 @@ fn get_cert(
         .context("Could not build HTTP client.")?
         .get(format!("{api_url}sign"))
         .query(&[("public_key", identity.public_key().to_string())])
-        .header("Accept", "application/json")
-        .header("Authorization", format!("Bearer {token}"))
+        .header(reqwest::header::ACCEPT, "application/json")
+        .header(reqwest::header::AUTHORIZATION, format!("Bearer {token}"))
         .send()
         .context("Could not get certificate from CA.")?;
     if cert_r.status().is_success() {
