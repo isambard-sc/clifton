@@ -360,75 +360,7 @@ fn main() -> Result<()> {
                 )?,
             )
             .context("Could not parse certificate details cache. Try rerunning `clifton auth`.")?;
-            let jump_configs = f
-                .platforms
-                .values()
-                .map(|c| {
-                    if let Some(proxy_jump) = &c.proxy_jump {
-                        let jump_alias = format!("jump.{}", &c.alias);
-                        let jump_config = format!(
-                            "Host {jump_alias}\n\
-                                \tHostname {}\n\
-                                \tIdentityFile {1}\n\
-                                \tCertificateFile {1}-cert.pub\n\
-                            \n",
-                            proxy_jump,
-                            f.identity.display(),
-                        );
-                        let host_config = format!(
-                            "Host *.{} !{jump_alias}\n\
-                                \tHostname {}\n\
-                                \tProxyJump %r@{}\n\
-                                \tIdentityFile {3}\n\
-                                \tCertificateFile {3}-cert.pub\n\
-                                \tAddKeysToAgent yes\n\
-                            \n",
-                            &c.alias,
-                            &c.hostname,
-                            &jump_alias,
-                            f.identity.display(),
-                        );
-                        format!("{}{}", jump_config, host_config)
-                    } else {
-                        format!(
-                            "Host *.{}\n\
-                                \tHostname {}\n\
-                                \tIdentityFile {2}\n\
-                                \tCertificateFile {2}-cert.pub\n\
-                                \tAddKeysToAgent yes\n\
-                            \n",
-                            &c.alias,
-                            &c.hostname,
-                            f.identity.display(),
-                        )
-                    }
-                })
-                .collect::<Vec<String>>()
-                .join("");
-            let alias_configs = f
-                .projects
-                .iter()
-                .map(|(project, platforms)| {
-                    let project_configs = platforms.iter().map(|platform| {
-                        let project_alias = format!(
-                            "{}.{}",
-                            &project,
-                            &f.platforms
-                                .get(platform)
-                                .context("Could not find platform {platform} in config.")?
-                                .alias
-                        );
-                        let project_config = format!(
-                            "Host {project_alias}\n\
-                            \tUser {}.{}\n",
-                            &f.short_name, &project,
-                        );
-                        Ok(project_config)
-                    });
-                    Ok(project_configs.collect::<Result<Vec<String>>>()?.join("\n"))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let config = jump_configs + &alias_configs.join("\n");
+            let config = ssh_config(&f)?;
             match command {
                 Some(SshConfigCommands::Write { ssh_config }) => {
                     let ssh_config = shellexpand::path::tilde(ssh_config);
@@ -538,6 +470,79 @@ fn main() -> Result<()> {
     // TODO Write known_hosts line
 
     Ok(())
+}
+
+fn ssh_config(f: &CertificateConfigCache) -> Result<String, anyhow::Error> {
+    let jump_configs = f
+        .platforms
+        .values()
+        .map(|c| {
+            if let Some(proxy_jump) = &c.proxy_jump {
+                let jump_alias = format!("jump.{}", &c.alias);
+                let jump_config = format!(
+                    "Host {jump_alias}\n\
+                                \tHostname {}\n\
+                                \tIdentityFile {1}\n\
+                                \tCertificateFile {1}-cert.pub\n\
+                            \n",
+                    proxy_jump,
+                    f.identity.display(),
+                );
+                let host_config = format!(
+                    "Host *.{} !{jump_alias}\n\
+                                \tHostname {}\n\
+                                \tProxyJump %r@{}\n\
+                                \tIdentityFile {3}\n\
+                                \tCertificateFile {3}-cert.pub\n\
+                                \tAddKeysToAgent yes\n\
+                            \n",
+                    &c.alias,
+                    &c.hostname,
+                    &jump_alias,
+                    f.identity.display(),
+                );
+                format!("{}{}", jump_config, host_config)
+            } else {
+                format!(
+                    "Host *.{}\n\
+                                \tHostname {}\n\
+                                \tIdentityFile {2}\n\
+                                \tCertificateFile {2}-cert.pub\n\
+                                \tAddKeysToAgent yes\n\
+                            \n",
+                    &c.alias,
+                    &c.hostname,
+                    f.identity.display(),
+                )
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("");
+    let alias_configs = f
+        .projects
+        .iter()
+        .map(|(project, platforms)| {
+            let project_configs = platforms.iter().map(|platform| {
+                let project_alias = format!(
+                    "{}.{}",
+                    &project,
+                    &f.platforms
+                        .get(platform)
+                        .context("Could not find platform {platform} in config.")?
+                        .alias
+                );
+                let project_config = format!(
+                    "Host {project_alias}\n\
+                            \tUser {}.{}\n",
+                    &f.short_name, &project,
+                );
+                Ok(project_config)
+            });
+            Ok(project_configs.collect::<Result<Vec<String>>>()?.join("\n"))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let config = jump_configs + &alias_configs.join("\n");
+    Ok(config)
 }
 
 /// Get a signed certificate from Waldur
