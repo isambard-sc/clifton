@@ -36,7 +36,7 @@ itertools = { version = "0.13", default-features = false, features = ["use_alloc
 built = { version = "0.7", default-features = false, features = ["git2"] }
 
 [dev-dependencies]
-mockito = "1.4"
+mockito = "1.5"
 ssh-key = { version = "0.6", default-features = false, features = ["ed25519", "rand_core"] }
 
 [profile.release]
