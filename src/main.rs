@@ -343,12 +343,12 @@ fn main() -> Result<()> {
                 ))?,
             )
             .context("Could not write certificate details cache.")?;
+            println!("Certificate file written to {}", &cert_file_path.display());
             println!(
                 "Certificate valid for {} hours and {} minutes.",
                 valid_for.num_hours(),
                 valid_for.num_minutes() % 60,
             );
-            println!("Certificate file written to {}", &cert_file_path.display());
             println!(
                 "You may now want to run `clifton ssh-config write` to configure your SSH config aliases."
             );
