@@ -571,12 +571,17 @@ fn get_cert(
     api_url: &url::Url,
     token: &String,
 ) -> Result<CertificateSignResponse> {
-    let cert_r = reqwest::blocking::Client::new()
+    let cert_r = reqwest::blocking::Client::builder()
+        .user_agent(format!(
+            "Clifton/{} (os:{}) (arch:{})",
+            version(),
+            std::env::consts::OS,
+            std::env::consts::ARCH
+        ))
+        .build()
+        .context("Could not build HTTP client.")?
         .get(format!("{api_url}sign"))
-        .query(&[
-            ("public_key", identity.public_key().to_string()),
-            ("clifton-version", version().to_string()),
-        ])
+        .query(&[("public_key", identity.public_key().to_string())])
         .header("Accept", "application/json")
         .header("Authorization", format!("Bearer {token}"))
         .send()
