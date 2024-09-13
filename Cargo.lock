@@ -317,7 +317,7 @@ checksum = "1462739cb27611015575c0c11df5df7601141071f07518d56fcc1be504cbec97"
 
 [[package]]
 name = "clifton"
-version = "0.1.4"
+version = "0.2.0"
 dependencies = [
  "anstyle",
  "anyhow",
