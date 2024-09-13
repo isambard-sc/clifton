@@ -15,7 +15,7 @@ pub struct Config {
     /// The URL of the CA server
     #[serde(default = "Config::default_ca_url")]
     pub ca_url: Url,
-    /// The client ID in KeyCloak
+    /// The OIDC client ID
     #[serde(default = "Config::default_client_id")]
     pub client_id: String,
     /// The default location of the identity to use

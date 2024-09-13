@@ -14,7 +14,7 @@ use url::Url;
 use crate::cache;
 
 /// Given an OAuth `client_id` and URL, authenticate with the device code workflow
-pub fn get_keycloak_token<P: AsRef<std::path::Path>>(
+pub fn get_access_token<P: AsRef<std::path::Path>>(
     client_id: &String,
     issuer_url: &Url,
     open_webpage: bool,
@@ -24,7 +24,7 @@ pub fn get_keycloak_token<P: AsRef<std::path::Path>>(
     let client_id = ClientId::new(client_id.to_string());
     let client_secret = None;
 
-    // TODO get these from https://{keycloak}/realms/{realm}/.well-known/openid-configuration
+    // TODO get these from https://{provider}/realms/{realm}/.well-known/openid-configuration
     let auth_url =
         AuthUrl::from_url(format!("{issuer_url}/protocol/openid-connect/auth/device").parse()?);
     let token_url =
@@ -33,7 +33,7 @@ pub fn get_keycloak_token<P: AsRef<std::path::Path>>(
         format!("{issuer_url}/protocol/openid-connect/auth/device").parse()?,
     );
 
-    // Set up the config for the Keycloak OAuth2 process.
+    // Set up the config for the OIDC process.
     let device_client = BasicClient::new(client_id, client_secret, auth_url, Some(token_url))
         .set_device_authorization_url(device_auth_url)
         .set_auth_type(AuthType::RequestBody);
@@ -70,7 +70,7 @@ pub fn get_keycloak_token<P: AsRef<std::path::Path>>(
     let token = device_client
         .exchange_device_access_token(&details)
         .request(http_client, std::thread::sleep, None)
-        .context("Could not get token from KeyCloak.")?;
+        .context("Could not get token from identity provider.")?;
 
     cache::write_file(token_cache_path, token.access_token().secret())?;
     Ok(token.access_token().clone())

@@ -7,7 +7,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::IsTerminal};
 
-use crate::auth::get_keycloak_token;
+use crate::auth::get_access_token;
 
 pub mod auth;
 pub mod cache;
@@ -269,7 +269,7 @@ fn main() -> Result<()> {
                 .join(std::ffi::OsStr::new("")),
             );
             let token_cache_path = "token";
-            // Try to load the Waldur API key from the cache
+            // Try to load the accedd token from the cache
             println!(
                 "Retrieving certificate for identity `{}`.",
                 &identity_file.display()
@@ -283,7 +283,7 @@ fn main() -> Result<()> {
                 .map_or_else(
                     || {
                         // If the certificate could not be fetched, renew the API token
-                        let token = get_keycloak_token(
+                        let token = get_access_token(
                             &config.client_id,
                             &issuer,
                             open_browser,
@@ -565,7 +565,7 @@ fn ssh_config(f: &CertificateConfigCache) -> Result<String, anyhow::Error> {
     Ok(config)
 }
 
-/// Get a signed certificate from Waldur
+/// Get a signed certificate from CA
 fn get_cert(
     identity: &ssh_key::PrivateKey,
     api_url: &url::Url,
