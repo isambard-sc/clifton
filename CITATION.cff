@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
+# SPDX-License-Identifier: CC0-1.0
+
+cff-version: 1.2.0
+title: "Clifton"
+type: "software"
+authors:
+  - affiliation: "University of Bristol"
+    family-names: "Matt Williams"
+doi: "10.5281/zenodo.13760257"
+repository-code: 'https://github.com/isambard-sc/clifton'
+license: "MIT"
