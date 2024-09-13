@@ -3,6 +3,7 @@
 
 use anyhow::{Context, Result};
 use clap::{CommandFactory as _, Parser, Subcommand};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, io::IsTerminal};
 
@@ -363,22 +364,37 @@ fn main() -> Result<()> {
             let config = ssh_config(&f)?;
             match command {
                 Some(SshConfigCommands::Write { ssh_config }) => {
-                    let ssh_config = shellexpand::path::tilde(ssh_config);
-                    let current_config = std::fs::read_to_string(&ssh_config).unwrap_or_default();
-                    let clifton_ssh_config_file = ssh_config.with_file_name("config_clifton");
-                    let include_line = format!("Include {}\n", clifton_ssh_config_file.display());
-                    if !current_config.contains(&include_line) {
-                        let new_config = include_line + &current_config;
-                        std::fs::write(&ssh_config, new_config)
-                            .context("Could not write main SSH config file.")?;
+                    let main_ssh_config_path = shellexpand::path::tilde(ssh_config);
+                    let current_main_config =
+                        std::fs::read_to_string(&main_ssh_config_path).unwrap_or_default();
+                    let clifton_ssh_config_path =
+                        main_ssh_config_path.with_file_name("config_clifton");
+                    let include_line = format!("Include {}\n", clifton_ssh_config_path.display());
+                    if !current_main_config.contains(&include_line) {
+                        let new_config = include_line + &current_main_config;
+                        std::fs::write(&main_ssh_config_path, new_config)
+                            .context("Could not write Include line to main SSH config file.")?;
+                        println!(
+                            "Updated {} to contain Include line.",
+                            &main_ssh_config_path.display()
+                        );
                     }
+
+                    let current_clifton_config =
+                        std::fs::read_to_string(&clifton_ssh_config_path).unwrap_or_default();
                     let text_for_file = "# CLIFTON MANAGED\n".to_string() + &config;
-                    std::fs::write(&clifton_ssh_config_file, text_for_file)
-                        .context("Could not write clifon SSH config file.")?;
+                    if text_for_file == current_clifton_config {
+                        println!("SSH config is already up to date.");
+                    } else {
+                        std::fs::write(&clifton_ssh_config_path, &text_for_file)
+                            .context("Could not write clifon SSH config file.")?;
+                        println!(
+                            "Wrote SSH config to {}.",
+                            &clifton_ssh_config_path.display()
+                        );
+                    }
                     println!(
-                        "Wrote SSH config to {} and ensured {} includes it\nfor host aliases: \n - {}",
-                        &clifton_ssh_config_file.display(),
-                        &ssh_config.display(),
+                        "Available host aliases: \n - {}",
                         &f.projects
                             .iter()
                             .flat_map(|(project, platforms)| {
@@ -388,7 +404,9 @@ fn main() -> Result<()> {
                                         project.clone(),
                                         &f.platforms
                                             .get(platform)
-                                            .context("Could not find platform {platform} in config.")?
+                                            .context(
+                                                "Could not find platform {platform} in config."
+                                            )?
                                             .alias
                                     ))
                                 })
@@ -475,8 +493,9 @@ fn main() -> Result<()> {
 fn ssh_config(f: &CertificateConfigCache) -> Result<String, anyhow::Error> {
     let jump_configs = f
         .platforms
-        .values()
-        .map(|c| {
+        .iter()
+        .sorted_by_key(|x| x.0)
+        .map(|(_, c)| {
             if let Some(proxy_jump) = &c.proxy_jump {
                 let jump_alias = format!("jump.{}", &c.alias);
                 let jump_config = format!(
@@ -521,6 +540,7 @@ fn ssh_config(f: &CertificateConfigCache) -> Result<String, anyhow::Error> {
     let alias_configs = f
         .projects
         .iter()
+        .sorted()
         .map(|(project, platforms)| {
             let project_configs = platforms.iter().map(|platform| {
                 let project_alias = format!(

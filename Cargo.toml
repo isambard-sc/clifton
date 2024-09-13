@@ -30,6 +30,7 @@ ssh-key = { version = "0.6", default-features = false, features = ["std", "serde
 toml = { version = "0.8", default-features = false, features = ["parse"] }
 url = { version = "2.5", default-features = false, features = ["serde"] }
 webbrowser = { version = "1.0", default-features = false }
+itertools = { version = "0.13", default-features = false, features = ["use_alloc"] }
 
 [build-dependencies]
 built = { version = "0.7", default-features = false, features = ["git2"] }
