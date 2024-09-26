@@ -5,8 +5,10 @@ cff-version: 1.2.0
 title: "Clifton"
 type: "software"
 authors:
-  - affiliation: "University of Bristol"
-    family-names: "Matt Williams"
+  - given-names: "Matt"
+    family-names: "Williams"
+    orcid: "https://orcid.org/0000-0003-2198-1058"
+    affiliation: "University of Bristol"
 doi: "10.5281/zenodo.13760257"
 repository-code: 'https://github.com/isambard-sc/clifton'
 license: "MIT"
