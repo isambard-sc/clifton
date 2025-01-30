@@ -4,11 +4,10 @@
 use anyhow::{Context, Result};
 use openidconnect::core::{
     CoreAuthDisplay, CoreClaimName, CoreClaimType, CoreClient, CoreClientAuthMethod,
-    CoreDeviceAuthorizationResponse, CoreGrantType, CoreJsonWebKey, CoreJsonWebKeyType,
-    CoreJsonWebKeyUse, CoreJweContentEncryptionAlgorithm, CoreJweKeyManagementAlgorithm,
-    CoreJwsSigningAlgorithm, CoreResponseMode, CoreResponseType, CoreSubjectIdentifierType,
+    CoreDeviceAuthorizationResponse, CoreGrantType, CoreJsonWebKey,
+    CoreJweContentEncryptionAlgorithm, CoreJweKeyManagementAlgorithm, CoreResponseMode,
+    CoreResponseType, CoreSubjectIdentifierType,
 };
-use openidconnect::reqwest::http_client;
 use openidconnect::{
     AccessToken, AdditionalProviderMetadata, AuthType, ClientId, DeviceAuthorizationUrl, IssuerUrl,
     OAuth2TokenResponse as _, ProviderMetadata, Scope,
@@ -34,9 +33,6 @@ type DeviceProviderMetadata = ProviderMetadata<
     CoreGrantType,
     CoreJweContentEncryptionAlgorithm,
     CoreJweKeyManagementAlgorithm,
-    CoreJwsSigningAlgorithm,
-    CoreJsonWebKeyType,
-    CoreJsonWebKeyUse,
     CoreJsonWebKey,
     CoreResponseMode,
     CoreResponseType,
@@ -55,7 +51,9 @@ pub fn get_access_token<P: AsRef<std::path::Path>>(
     let client_id = ClientId::new(client_id.to_string());
     let client_secret = None;
 
-    let provider_metadata = DeviceProviderMetadata::discover(&issuer_url, http_client)
+    let http_client = openidconnect::reqwest::blocking::Client::new();
+
+    let provider_metadata = DeviceProviderMetadata::discover(&issuer_url, &http_client)
         .context("Cannot discover OIDC metadata.")?;
 
     let device_auth_url = provider_metadata
@@ -65,15 +63,14 @@ pub fn get_access_token<P: AsRef<std::path::Path>>(
 
     let device_client =
         CoreClient::from_provider_metadata(provider_metadata, client_id, client_secret)
-            .set_device_authorization_uri(device_auth_url)
+            .set_device_authorization_url(device_auth_url)
             .set_auth_type(AuthType::RequestBody);
 
     // Request the set of codes from the Device Authorization endpoint.
     let details: CoreDeviceAuthorizationResponse = device_client
         .exchange_device_code()
-        .context("Cound not exchange device code.")?
         .add_scope(Scope::new("openid".to_string()))
-        .request(http_client)
+        .request(&http_client)
         .context("Failed to request codes from device auth endpoint.")?;
 
     // Display the URL and user-code.
@@ -99,7 +96,8 @@ pub fn get_access_token<P: AsRef<std::path::Path>>(
     // Now poll for the token
     let token = device_client
         .exchange_device_access_token(&details)
-        .request(http_client, std::thread::sleep, None)
+        .context("Cound not exchange device code.")?
+        .request(&http_client, std::thread::sleep, None)
         .context("Could not get token from identity provider.")?;
 
     cache::write_file(token_cache_path, token.access_token().secret())?;
