@@ -13,6 +13,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - Allow `--config-file` to be passed at any level of subcommands.
 - Allow `clifton clear-cache` to work if cache directory is missing.
 - Only notify to write config if a change is detected.
+- Store the absolute path of passed identity files, rather than their relative position from where `auth` was run (Issue #98).
 
 ### Changed
 - Retrieve OIDC client ID from the CA rather than setting it in the config. Requires version 0.3 of Conch.

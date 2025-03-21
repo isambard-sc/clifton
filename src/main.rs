@@ -153,12 +153,13 @@ fn main() -> Result<()> {
             let show_qr = show_qr.unwrap_or(config.show_qr);
 
             // Load the user's public key
-            let identity_file = shellexpand::path::tilde(
+            let identity_file = std::path::absolute(shellexpand::path::tilde(
                 identity
                     .as_ref()
                     .or(config.identity.as_ref())
                     .context("No identity file specified.")?,
-            );
+            ))
+            .context("Could not form absolute path for the identity file.")?;
             if !identity_file.is_file() {
                 anyhow::bail!(format!(
                     "Identity file {} not found.\nEither specify the identity file (see `clifton auth --help`) or create a new key.",
