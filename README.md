@@ -5,7 +5,7 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # Clifton - an SSH connection manager
 
-Clifton is used to retrieve SSH certificates for acessing AI Research Resources.
+Clifton is used to retrieve SSH certificates for accessing AI Research Resources.
 
 There are two main commands in `clifton` that you will need, `auth` and `ssh-config`.
 

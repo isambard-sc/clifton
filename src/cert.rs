@@ -233,6 +233,7 @@ impl CertificateConfigCache {
                                 \tHostname {}\n\
                                 \tIdentityFile \"{1}\"\n\
                                 \tCertificateFile \"{1}-cert.pub\"\n\
+                                \tServerAliveInterval 60\n\
                             \n",
                         proxy_jump,
                         self.identity.display(),
@@ -244,6 +245,7 @@ impl CertificateConfigCache {
                                 \tIdentityFile \"{2}\"\n\
                                 \tCertificateFile \"{2}-cert.pub\"\n\
                                 \tAddKeysToAgent yes\n\
+                                \tServerAliveInterval 60\n\
                             \n",
                         &c.alias,
                         &c.hostname,
@@ -257,6 +259,7 @@ impl CertificateConfigCache {
                                 \tIdentityFile \"{2}\"\n\
                                 \tCertificateFile \"{2}-cert.pub\"\n\
                                 \tAddKeysToAgent yes\n\
+                                \tServerAliveInterval 60\n\
                             \n",
                         &c.alias,
                         &c.hostname,
