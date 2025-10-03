@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- SPDX-FileCopyrightText: © 2025 Matt Williams <matt.williams@bristol.ac.uk> -->
+<!-- SPDX-License-Identifier: CC0-1.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" stroke-width="4" stroke-linecap="round" stroke="#000">
+  <path d="M8 13C8 13 14 23 24 23C34 23 40 13 40 13"></path>
+  <path d="M8 10V38" stroke-linejoin="round"></path>
+  <path d="M40 10V38" stroke-linejoin="round"></path>
+  <path d="M4 30.5C4 30.5 16.1877 29.903 24 30C31.820 30.0975 44 31 44 31"></path>
+  <path d="M16 21V30"></path>
+  <path d="M24 23L24 30"></path>
+  <path d="M32 21L32 30"></path>
+  <path d="M8 13L4 18"></path>
+  <path d="M44 18L40 13"></path>
+</svg>

@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: © 2024 Matt Williams <matt.williams@bristol.ac.uk>
 # SPDX-License-Identifier: CC0-1.0
 
-/target
-/build
-*.exe
-*.msi
+sphinx~=8.2
+sphinx-autobuild>=2025.8
+shibuya>=2025.9
+sphinx-design>=0.6
+sphinx-copybutton>=0.5
