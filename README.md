@@ -5,13 +5,15 @@ SPDX-License-Identifier: CC-BY-SA-4.0
 
 # Clifton - an SSH connection manager
 
-Clifton is used to retrieve SSH certificates for acessing AI Research Resources.
+Clifton is used to retrieve SSH certificates for accessing remote computers.
+
+See the documentation at https://clifton.readthedocs.io
 
 There are two main commands in `clifton` that you will need, `auth` and `ssh-config`.
 
 ## `clifton auth`
 
-`clifton auth` will authenticate with the online portal and download a signed SSH certificate.
+`clifton auth` will authenticate with the identity provider and download a signed SSH certificate.
 It will send to the server the fingperint of your local SSH identity file.
 If you are using a non-standard identity file name, you can specify that file with, e.g.:
 
