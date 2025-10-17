@@ -4,7 +4,7 @@
 :layout: landing
 
 |clifton_logo| Clifton
-=======
+======================
 
 .. |clifton_logo| image:: _static/favicon.svg
    :height: 1em
