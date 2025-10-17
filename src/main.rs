@@ -226,6 +226,7 @@ fn main() -> Result<()> {
                     show_qr,
                 )?;
                 get_cert(&identity, &site.ca_url, token.secret())
+                    .context("Could not fetch certificate.")
             };
             let cert = match cert {
                 Ok(cert) => cert,
@@ -444,7 +445,18 @@ fn get_cert(
             .context("Could not parse certificate response from CA. This could be caused by an outdated version of Clifton.")?;
         Ok(cert)
     } else {
-        anyhow::bail!(cert_r.text().context("Could not get error message.")?);
+        let error_string = cert_r
+            .text()
+            .context("Could not get error message from server.")?;
+
+        #[derive(serde::Deserialize)]
+        struct ErrorResponse {
+            message: String,
+        }
+
+        let error_message = serde_json::from_str::<ErrorResponse>(&error_string)
+            .map_or(error_string, |e| e.message);
+        Err(anyhow::anyhow!(error_message).context("Error returned by certificate server."))
     }
 }
 
