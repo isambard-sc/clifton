@@ -9,11 +9,13 @@ use std::io::{IsTerminal, Write as _};
 
 use crate::auth::get_access_token;
 use crate::cert::CaOidcResponse;
+use crate::ssh::SshCommand;
 
 pub mod auth;
 pub mod cache;
 pub mod cert;
 pub mod config;
+mod ssh;
 mod version;
 
 pub mod built_info {
@@ -73,6 +75,9 @@ enum Commands {
         project: String,
         /// The resource to access the project on
         resource: Option<String>,
+        /// Run the SSH command
+        #[clap(long, short, action)]
+        run: bool,
     },
     /// Empty the cache
     #[command(hide = true)]
@@ -347,7 +352,11 @@ fn main() -> Result<()> {
                 }
             }
         }
-        Some(Commands::SshCommand { project, resource }) => {
+        Some(Commands::SshCommand {
+            project,
+            resource,
+            run,
+        }) => {
             let f: CertificateConfigCache = serde_json::from_str(
                 &cache::read_file(cert_details_file_name).context(
                     "Could not read certificate details cache. Have you run `clifton auth`?",
@@ -380,25 +389,44 @@ fn main() -> Result<()> {
                     "Could not find {} in list of resources.",
                     resource_id
                 ))?;
-                let line = format!(
-                    "ssh {}-i '{}' -o 'CertificateFile \"{}-cert.pub\"' -o 'AddKeysToAgent yes' {}.{}@{}",
-                    if let Some(j) = &resource.proxy_jump {
-                        format!("-J '%r@{}' ", j)
+
+                let proxy_command = SshCommand {
+                    proxy_command: true,
+                    options: vec![],
+                    cert: resource_association.certificate.display().to_string(),
+                    identity_file: f.identity.display().to_string(),
+                    host: if let Some(proxy_jump) = &resource.proxy_jump {
+                        format!("%r@{}", proxy_jump.as_str())
                     } else {
-                        " ".to_string()
+                        "".to_string()
                     },
-                    f.identity.display(),
-                    f.identity.display(),
-                    &resource_association.username,
-                    &project,
-                    &resource.hostname,
-                );
+                };
+
+                let command = SshCommand {
+                    proxy_command: false,
+                    options: vec![
+                        format!("{}", proxy_command),
+                        "AddKeysToAgent yes".to_string(),
+                    ],
+                    cert: resource_association.certificate.display().to_string(),
+                    identity_file: f.identity.display().to_string(),
+                    host: format!(
+                        "{}@{}",
+                        resource_association.username.clone(),
+                        resource.hostname
+                    ),
+                };
+
                 if std::io::stdout().is_terminal() {
                     // OpenSSH does not seem to offer the certificate to the jump host
                     // unless it's in the default search list.
                     eprintln!("Note that if using a non-standard identity file location, the given SSH command may not work.");
                 }
-                println!("{line}");
+                println!("{}", command);
+                if *run {
+                    println!("Connecting...\n");
+                    command.execute();
+                }
             } else {
                 anyhow::bail!(format!(
                     "Project {project} does not match any currently authorised for. Try rerunning `clifton auth`."
