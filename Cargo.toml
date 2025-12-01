@@ -37,7 +37,7 @@ atom_syndication = { version = "0.12", default-features = false }
 built = { version = "0.8", default-features = false, features = ["git2"] }
 
 [dev-dependencies]
-mockito = "1.5"
+mockito = "1.7"
 rand = { version = "0.9.2", default-features = false }
 rstest = { version = "0.26.1", default-features = false }
 ssh-key = { version = "0.6", default-features = false, features = ["ed25519", "rand_core"] }
