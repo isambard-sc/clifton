@@ -14,7 +14,7 @@ There are two main commands in `clifton` that you will need, `auth` and `ssh-con
 ## `clifton auth`
 
 `clifton auth` will authenticate with the identity provider and download a signed SSH certificate.
-It will send to the server the fingperint of your local SSH identity file.
+It will send to the server the fingerprint of your local SSH identity file.
 If you are using a non-standard identity file name, you can specify that file with, e.g.:
 
 ```console
