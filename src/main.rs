@@ -304,15 +304,18 @@ fn main() -> Result<()> {
                 );
             }
 
-            let clifton_ssh_config_path = dirs::home_dir()
+            let main_ssh_config_path = dirs::home_dir()
                 .context("")?
                 .join(".ssh")
-                .join("config_clifton");
+                .join("config");
+
+            let clifton_ssh_config_path = main_ssh_config_path.with_file_name("config_clifton");
+
             let ssh_config = cert_config_cache.ssh_config()?;
             if ssh_config != std::fs::read_to_string(&clifton_ssh_config_path).unwrap_or_default() {
                 if write_config.unwrap_or(config.write_config) {
                     ssh_config_write(
-                        &clifton_ssh_config_path,
+                        &main_ssh_config_path,
                         &cert_config_cache.ssh_config()?,
                         cert_config_cache,
                     )?;
