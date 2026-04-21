@@ -65,6 +65,12 @@ jobs:
             output: clifton
             asset-name: clifton-macos-x86_64
             compress-binary: false
+          - target: "x86_64-unknown-freebsd"
+            os: "ubuntu-latest"
+            cross: true
+            output: clifton
+            asset-name: clifton-freebsd-x86_64
+            compress-binary: false
     steps:
       - uses: actions/checkout@v4
         with:
