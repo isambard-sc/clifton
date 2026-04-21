@@ -72,7 +72,7 @@ jobs:
             asset-name: clifton-freebsd-x86_64
             compress-binary: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.ref || '' }}
           fetch-depth: 0  # This is needed so that git-describe works properly to set the version
@@ -102,11 +102,10 @@ jobs:
           upx-${upx_ver}-amd64_linux/upx ${{ matrix.asset-name }}
         if: ${{ matrix.compress-binary }}
       - name: Store build artefacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.asset-name }}
-          path: |
-            ${{ matrix.asset-name }}
+          path: ${{ matrix.asset-name }}
+          archive: false
       - name: Zip .exe
         if: endswith(matrix.asset-name, '.exe')
         id: exe-zip
@@ -117,8 +116,7 @@ jobs:
           echo "ZIP_FILE=${ZIP_FILE}" >> "${GITHUB_OUTPUT}"
       - name: Store zip artefacts
         if: steps.exe-zip.outcome == 'success'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.exe-zip.outputs.ZIP_FILE }}
-          path: |
-            ${{ steps.exe-zip.outputs.ZIP_FILE }}
+          path: ${{ steps.exe-zip.outputs.ZIP_FILE }}
+          archive: false

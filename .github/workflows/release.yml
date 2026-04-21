@@ -55,7 +55,7 @@ jobs:
       ref: "${{ steps.get_version.outputs.version }}"
       changelog: "${{ steps.changelog.outputs.changelog }}"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ github.ref }}  # Use ref here since we must commit on a branch
           ssh-key: ${{secrets.DEPLOY_KEY}}
@@ -121,7 +121,7 @@ jobs:
       attestations: write
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Install toolchain
         uses: dtolnay/rust-toolchain@stable
       - name: Install cargo-sbom
@@ -131,17 +131,18 @@ jobs:
       - name: Generate SBOM
         run: cargo sbom --output-format=spdx_json_2_3 > sbom.spdx.json
       - name: Fetch release artefacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: clifton-*
           merge-multiple: true
+          skip-decompress: true
       - name: Attest SBOM
-        uses: actions/attest-sbom@v1
+        uses: actions/attest@v4
         with:
           subject-path: clifton-*
           sbom-path: sbom.spdx.json
       - name: Store SBOM
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: sbom.spdx.json
           path: sbom.spdx.json
@@ -156,12 +157,13 @@ jobs:
       id-token: write
     steps:
       - name: Fetch release artefacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: clifton-*
           merge-multiple: true
+          skip-decompress: true
       - name: Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.tag-release.outputs.ref }}
           files: clifton-*
@@ -177,4 +179,4 @@ jobs:
           path: site
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
