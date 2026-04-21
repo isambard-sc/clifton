@@ -96,7 +96,7 @@ jobs:
         run: cp target/${{ matrix.target }}/release/${{ matrix.output }} ${{ matrix.asset-name }}
       - name: Compress output
         run: |
-          upx_ver="5.0.2"
+          upx_ver="5.1.1"
           wget "https://github.com/upx/upx/releases/download/v${upx_ver}/upx-${upx_ver}-amd64_linux.tar.xz"
           tar xvf "upx-${upx_ver}-amd64_linux.tar.xz"
           upx-${upx_ver}-amd64_linux/upx ${{ matrix.asset-name }}
