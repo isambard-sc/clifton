@@ -29,6 +29,9 @@ pub struct Config {
     /// Should the config be written out after successful auth
     #[serde(default = "Config::default_write_config")]
     pub write_config: bool,
+    /// Should authentication be skipped if it's not needed
+    #[serde(default = "Config::default_passive")]
+    pub passive: bool,
 }
 
 impl Config {
@@ -69,6 +72,9 @@ impl Config {
         true
     }
     fn default_write_config() -> bool {
+        false
+    }
+    fn default_passive() -> bool {
         false
     }
 }

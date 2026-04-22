@@ -4,6 +4,7 @@
 use anyhow::{Context, Result};
 use itertools::Itertools as _;
 use serde::{Deserialize, Deserializer, Serialize};
+use std::time::SystemTime;
 use std::{collections::HashMap, io::Write as _};
 
 #[allow(clippy::large_enum_variant)]
@@ -431,5 +432,28 @@ impl CertificateConfigCache {
         let config = jump_configs + "\n" + &alias_configs.join("\n");
         let config = "# CLIFTON MANAGED\n".to_string() + &config;
         Ok(config)
+    }
+
+    pub fn first_expiry(&self) -> Option<SystemTime> {
+        // We are, in prinicple, returned many certificates. Find the one with the soonest expiry time and print it.
+        match &self.associations {
+            AssociationsCache::Projects(projects) => projects
+                .values()
+                .filter_map(|p| {
+                    p.resources
+                        .iter()
+                        .filter_map(|(_, ra)| {
+                            ssh_key::Certificate::read_file(ra.certificate.as_path()).ok()
+                        })
+                        .map(|cert| cert.valid_before_time())
+                        .min()
+                })
+                .min(),
+            AssociationsCache::Resources(resources) => resources
+                .values()
+                .filter_map(|ra| ssh_key::Certificate::read_file(ra.certificate.as_path()).ok())
+                .map(|cert| cert.valid_before_time())
+                .min(),
+        }
     }
 }
