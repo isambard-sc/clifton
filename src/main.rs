@@ -304,10 +304,7 @@ fn main() -> Result<()> {
                 );
             }
 
-            let main_ssh_config_path = dirs::home_dir()
-                .context("")?
-                .join(".ssh")
-                .join("config");
+            let main_ssh_config_path = dirs::home_dir().context("")?.join(".ssh").join("config");
 
             let clifton_ssh_config_path = main_ssh_config_path.with_file_name("config_clifton");
 
