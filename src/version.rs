@@ -34,12 +34,20 @@ pub fn check_for_new_version(url: url::Url, grace_days: i64) -> Result<()> {
     }
     let release = get_latest_release(url).context("Could not get latest release.")?;
     if release.version > version()? && release.since().num_days() >= grace_days {
+        let since = {
+            let days = release.since().num_days();
+            match (days / 7, days % 7) {
+                (0, 1) => format!("1 day"),
+                (0, days) => format!("{} days", &days),
+                (1, _) => format!("1 week"),
+                (weeks, _) => format!("{} weeks", &weeks),
+            }
+        };
         eprintln!(
             "{warning}There is a new version of Clifton available.{warning:#} \
-            {} was released {} days ago. \
+            {} was released {} ago. \
             Visit https://clifton.readthedocs.io/stable/install/ for installation instructions.",
-            &release.version,
-            &release.since().num_days()
+            &release.version, &since
         );
         if release.version.major > version()?.major {
             eprintln!(
