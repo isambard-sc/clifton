@@ -92,7 +92,7 @@ To install Clifton choose your operating system from the tabs below:
 
       To update Clifton, run those same commands again.
 
-      Alternatively, a tool like `mise <https://mise.jdx.dev/>`__ can install it for you with ``mise use -g ubi:isambard-sc/clifton``.
+      Alternatively, a tool like `mise <https://mise.jdx.dev/>`__ can install it for you with ``mise use -g github:isambard-sc/clifton``.
 
    .. tab-item:: Windows
 
