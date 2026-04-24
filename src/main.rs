@@ -58,6 +58,9 @@ enum Commands {
         /// Should the config be written out automatically
         #[arg(long)]
         write_config: Option<bool>,
+        /// The main SSH config file to write to
+        #[arg(hide = true, long)]
+        ssh_config_file: Option<std::path::PathBuf>,
     },
     /// Display the OpenSSH config
     SshConfig {
@@ -89,12 +92,9 @@ enum SshConfigCommands {
         /// The main SSH config file to write to
         #[arg(
             long,
-            default_value_os_t = dirs::home_dir()
-                .expect("Could not find home directory.")
-                .join(".ssh")
-                .join("config")
+            aliases = ["ssh_config"],
         )]
-        ssh_config: std::path::PathBuf,
+        ssh_config_file: Option<std::path::PathBuf>,
     },
 }
 
@@ -154,6 +154,7 @@ fn main() -> Result<()> {
             open_browser,
             show_qr,
             write_config,
+            ssh_config_file,
         }) => {
             let open_browser = open_browser.unwrap_or(config.open_browser);
             let show_qr = show_qr.unwrap_or(config.show_qr);
@@ -304,8 +305,7 @@ fn main() -> Result<()> {
                 );
             }
 
-            let main_ssh_config_path = dirs::home_dir().context("")?.join(".ssh").join("config");
-
+            let main_ssh_config_path = ssh_config_file.as_ref().unwrap_or(&config.ssh_config_file);
             let clifton_ssh_config_path = main_ssh_config_path.with_file_name("config_clifton");
 
             let ssh_config = cert_config_cache.ssh_config()?;
@@ -334,16 +334,18 @@ fn main() -> Result<()> {
                 )?,
             )
             .context("Could not parse certificate details cache. Try rerunning `clifton auth`.")?;
-            let config = &f.ssh_config()?;
+            let ssh_config = &f.ssh_config()?;
             match command {
-                Some(SshConfigCommands::Write { ssh_config }) => {
-                    ssh_config_write(ssh_config, config, f)?;
+                Some(SshConfigCommands::Write { ssh_config_file }) => {
+                    let main_ssh_config_path =
+                        ssh_config_file.as_ref().unwrap_or(&config.ssh_config_file);
+                    ssh_config_write(&main_ssh_config_path, ssh_config, f)?;
                 }
                 None => {
                     eprintln!("Copy this configuration into your SSH config file");
                     eprintln!("or use `clifton ssh-config write`.");
                     eprintln!();
-                    println!("{config}");
+                    println!("{ssh_config}");
                 }
             }
         }
@@ -461,11 +463,11 @@ fn get_cert(
 }
 
 fn ssh_config_write(
-    ssh_config: &std::path::PathBuf,
+    main_ssh_config_path: &std::path::PathBuf,
     config: &String,
     f: CertificateConfigCache,
 ) -> Result<()> {
-    let main_ssh_config_path = shellexpand::path::tilde(ssh_config);
+    let main_ssh_config_path = shellexpand::path::tilde(main_ssh_config_path);
     let current_main_config = std::fs::read_to_string(&main_ssh_config_path).unwrap_or_default();
     let clifton_ssh_config_path = main_ssh_config_path.with_file_name("config_clifton");
     let include_line = format!("Include \"{}\"\n", clifton_ssh_config_path.display());

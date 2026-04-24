@@ -29,6 +29,9 @@ pub struct Config {
     /// Should the config be written out after successful auth
     #[serde(default = "Config::default_write_config")]
     pub write_config: bool,
+    /// The main SSH config file to write to
+    #[serde(default = "Config::default_ssh_config_file")]
+    pub ssh_config_file: std::path::PathBuf,
 }
 
 impl Config {
@@ -70,6 +73,13 @@ impl Config {
     }
     fn default_write_config() -> bool {
         false
+    }
+    fn default_ssh_config_file() -> std::path::PathBuf {
+        #[allow(clippy::expect_used)]
+        dirs::home_dir()
+            .expect("Cannot locate home directory.")
+            .join(".ssh")
+            .join("config")
     }
 }
 
