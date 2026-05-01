@@ -11,6 +11,10 @@ on:
         type: string
         required: true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions: {}
 
 jobs:
@@ -72,37 +76,41 @@ jobs:
             asset-name: clifton-freebsd-x86_64
             compress-binary: false
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.ref || '' }}
           fetch-depth: 0  # This is needed so that git-describe works properly to set the version
+          persist-credentials: false
       - name: install MUSL
         if: contains(matrix.target, 'musl')
         run: sudo apt install musl-tools
       - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: ${{ matrix.target }}
+        run: rustup toolchain install stable --target="${{ matrix.target }}"
       - name: Install cross
-        uses: taiki-e/install-action@cross
+        uses: taiki-e/install-action@7769b73c2ec98c38dfcf2e18c83cfd4880c038c1 # v2.75.27
+        with:
+          tool: cross
         if: matrix.cross
       - name: Build
-        run: cargo build --target=${{ matrix.target }} --release
+        run: cargo build --target="${{ matrix.target }}" --release
         if: ${{ ! matrix.cross }}
       - name: Build
-        run: cross build --target=${{ matrix.target }} --release
+        run: cross build --target="${{ matrix.target }}" --release
         if: matrix.cross
       - name: Rename assets
-        run: cp target/${{ matrix.target }}/release/${{ matrix.output }} ${{ matrix.asset-name }}
+        run: cp "target/${{ matrix.target }}/release/${{ matrix.output }}" "${{ matrix.asset-name }}"
       - name: Compress output
         run: |
-          upx_ver="5.1.1"
-          wget "https://github.com/upx/upx/releases/download/v${upx_ver}/upx-${upx_ver}-amd64_linux.tar.xz"
-          tar xvf "upx-${upx_ver}-amd64_linux.tar.xz"
-          upx-${upx_ver}-amd64_linux/upx ${{ matrix.asset-name }}
+          wget "https://github.com/upx/upx/releases/download/v${UPX_VERSION}/upx-${UPX_VERSION}-amd64_linux.tar.xz"
+          echo "${UPX_HASH}" "upx-${UPX_VERSION}-amd64_linux.tar.xz" | sha256sum --check
+          tar xvf "upx-${UPX_VERSION}-amd64_linux.tar.xz"
+          "upx-${UPX_VERSION}-amd64_linux/upx" "${{ matrix.asset-name }}"
+        env:
+          UPX_VERSION: "5.1.1"
+          UPX_HASH: "1ff660454227861e00772f743f66b900072116b9dc24f6ee28b97cce88a7828a"
         if: ${{ matrix.compress-binary }}
       - name: Store build artefacts
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           path: ${{ matrix.asset-name }}
           archive: false
@@ -110,13 +118,13 @@ jobs:
         if: endswith(matrix.asset-name, '.exe')
         id: exe-zip
         run: |
-          ZIP_FILE="$(basename ${{ matrix.asset-name }} .exe).zip"
+          ZIP_FILE="$(basename "${{ matrix.asset-name }}" .exe).zip"
           mv "${{ matrix.asset-name }}" "clifton.exe"
           zip "${ZIP_FILE}" "clifton.exe"
           echo "ZIP_FILE=${ZIP_FILE}" >> "${GITHUB_OUTPUT}"
       - name: Store zip artefacts
         if: steps.exe-zip.outcome == 'success'
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           path: ${{ steps.exe-zip.outputs.ZIP_FILE }}
           archive: false
