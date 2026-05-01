@@ -31,10 +31,12 @@ jobs:
         shell: bash
         if: ${{ !contains(fromJSON('["major", "minor", "patch"]'), inputs.version) }}
         run: |
-          if ! [[ '${{ inputs.version }}' =~ [[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+ ]]; then
-            echo "::error::Verseion string must be a valid semver string"
+          if ! [[ "${INPUTS_VERSION}" =~ [[:digit:]]+\.[[:digit:]]+\.[[:digit:]]+ ]]; then
+            echo "::error::Version string must be a valid semver string"
             exit 1
           fi
+        env:
+          INPUTS_VERSION: ${{ inputs.version }}
 
   check:
     name: Check
@@ -50,61 +52,68 @@ jobs:
     needs: check
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write  # Needed to write the tag to the repo
     outputs:
       ref: "${{ steps.get_version.outputs.version }}"
       changelog: "${{ steps.changelog.outputs.changelog }}"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ github.ref }}  # Use ref here since we must commit on a branch
           ssh-key: ${{secrets.DEPLOY_KEY}}
+          persist-credentials: true
       - name: Install kacl
         run: |
           python -m venv ~/venv
           ~/venv/bin/pip install python-kacl
       - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          target: ${{ matrix.target }}
+        run: rustup toolchain install stable
       - name: Install cargo-edit tool
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@7769b73c2ec98c38dfcf2e18c83cfd4880c038c1 # v2.75.27
         with:
           tool: cargo-edit
       - name: Update version string
         run: |
-          echo Version input is '${{ inputs.version }}'
-          if [ '${{ contains(fromJSON('["major", "minor", "patch"]'), inputs.version) }}' = 'true' ]; then
+          echo Version input is "${INPUTS_VERSION}"
+          if [ "${VERSION_IS_BUMP}" = 'true' ]; then
             echo 'Setting based on update spec'
-            cargo set-version --bump ${{ inputs.version }}
-          elif [ -n '${{ inputs.version }}' ]; then
+            cargo set-version --bump "${INPUTS_VERSION}"
+          elif [ -n "${INPUTS_VERSION}" ]; then
             echo 'Updating based on explicit version'
-            cargo set-version ${{ inputs.version }}
+            cargo set-version "${INPUTS_VERSION}"
           fi
           git add Cargo.toml Cargo.lock
+        env:
+          VERSION_IS_BUMP: ${{ contains(fromJSON('["major", "minor", "patch"]'), inputs.version) }}
+          INPUTS_VERSION: ${{ inputs.version }}
       - name: Save the version
         id: get_version
         run: echo version="$(cargo metadata --format-version 1 --no-deps | jq --raw-output '.packages[0].version')" >> "${GITHUB_OUTPUT}"
       - name: Update version in changelog
         id: changelog
         run: |
-          ~/venv/bin/kacl-cli release --allow-dirty --no-commit --modify --link "https://github.com/${{ github.repository }}/releases/tag/${{ steps.get_version.outputs.version }}" "${{ steps.get_version.outputs.version }}"
+          ~/venv/bin/kacl-cli release --allow-dirty --no-commit --modify --link "https://github.com/${GITHUB_REPOSITORY}/releases/tag/${STEPS_GET_VERSION_OUTPUTS_VERSION}" "${STEPS_GET_VERSION_OUTPUTS_VERSION}"
           git add CHANGELOG.md
           {
             echo 'changelog<<EOF'
-            ~/venv/bin/kacl-cli get "${{ steps.get_version.outputs.version }}" | tail -n+2
+            ~/venv/bin/kacl-cli get "${STEPS_GET_VERSION_OUTPUTS_VERSION}" | tail -n+2
             echo EOF
           }  >> "${GITHUB_OUTPUT}"
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          STEPS_GET_VERSION_OUTPUTS_VERSION: ${{ steps.get_version.outputs.version }}
       - name: Tag release
         run: |
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
-          git commit -m "Release ${{ steps.get_version.outputs.version }}"
-          git tag -a -m "Release ${{ steps.get_version.outputs.version }}" "${{ steps.get_version.outputs.version }}"
+          git commit -m "Release ${STEPS_GET_VERSION_OUTPUTS_VERSION}"
+          git tag -a -m "Release ${STEPS_GET_VERSION_OUTPUTS_VERSION}" "${STEPS_GET_VERSION_OUTPUTS_VERSION}"
           git push --atomic --tags origin HEAD
+        env:
+          STEPS_GET_VERSION_OUTPUTS_VERSION: ${{ steps.get_version.outputs.version }}
 
   build-release:
-    name: "Build release (${{ matrix.target }})"
+    name: "Build release"
     needs: tag-release
     uses: ./.github/workflows/build.yml
     with:
@@ -118,31 +127,34 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      attestations: write
-      id-token: write
+      attestations: write  # Needed to persist the attestations
+      id-token: write  # Needed to mint the OIDC token necessary to request a Sigstore signing certificate
+      artifact-metadata: write  # Needed to create the artifact storage record
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
       - name: Install toolchain
-        uses: dtolnay/rust-toolchain@stable
+        run: rustup toolchain install stable
       - name: Install cargo-sbom
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@7769b73c2ec98c38dfcf2e18c83cfd4880c038c1 # v2.75.27
         with:
           tool: cargo-sbom
       - name: Generate SBOM
         run: cargo sbom --output-format=spdx_json_2_3 > sbom.spdx.json
       - name: Fetch release artefacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: clifton-*
           merge-multiple: true
           skip-decompress: true
       - name: Attest SBOM
-        uses: actions/attest@v4
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # v4
         with:
           subject-path: clifton-*
           sbom-path: sbom.spdx.json
       - name: Store SBOM
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: sbom.spdx.json
           path: sbom.spdx.json
@@ -152,31 +164,33 @@ jobs:
     needs: [build-release, tag-release, attest]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pages: write
-      id-token: write
+      contents: write  # Needed to write the release information
+      pages: write  # Needed to write the pages below. Last used in 0.2.0. To be removed in the future.
+      id-token: write  # Needed to create a token to write to Pages. Also to be removed at some point.
     steps:
       - name: Fetch release artefacts
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           pattern: clifton-*
           merge-multiple: true
           skip-decompress: true
       - name: Release
-        uses: softprops/action-gh-release@v3
-        with:
-          tag_name: ${{ needs.tag-release.outputs.ref }}
-          files: clifton-*
-          body: ${{ needs.tag-release.outputs.changelog }}
+        run: gh release create "${TAG_NAME}" clifton-* --notes "${NOTES}" --repo "${GITHUB_REPOSITORY}"
+        env:
+          TAG_NAME: ${{ needs.tag-release.outputs.ref }}
+          NOTES: ${{ needs.tag-release.outputs.changelog }}
+          GH_TOKEN: ${{ github.token }}
       # This was last used in version 0.2.0. It should be removed at some point.
       - name: Make release data file
         run: |
           mkdir site
-          echo '[{"version" : "'${{ needs.tag-release.outputs.ref }}'", "date" : "'$(date --iso-8601)'"}]' > site/releases
+          echo '[{"version" : "'"${NEEDS_TAG_RELEASE_OUTPUTS_REF}"'", "date" : "'"$(date --iso-8601)"'"}]' > site/releases
+        env:
+          NEEDS_TAG_RELEASE_OUTPUTS_REF: ${{ needs.tag-release.outputs.ref }}
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
         with:
           path: site
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5

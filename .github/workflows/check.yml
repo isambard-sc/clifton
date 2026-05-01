@@ -14,6 +14,10 @@ on:
         type: string
         default: ''
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -22,9 +26,10 @@ jobs:
     name: License REUSE spec
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
       - name: Install reuse
         run: |
           python -m venv ~/venv
@@ -35,9 +40,10 @@ jobs:
     name: Changelog format
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.ref }}
+          persist-credentials: false
       - name: Install kacl
         run: |
           python -m venv ~/venv
@@ -76,33 +82,32 @@ jobs:
             os: "ubuntu-latest"
             cross: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           ref: ${{ inputs.ref }}
           fetch-depth: 0  # This is needed so that git-describe works properly to set the version
+          persist-credentials: false
       - name: install MUSL
         if: contains(matrix.target, 'musl')
         run: sudo apt install musl-tools
       - name: Install toolchain
-        uses: dtolnay/rust-toolchain@v1
-        with:
-          toolchain: stable
-          targets: ${{ matrix.target }}
-          components: clippy, rustfmt
-      - uses: Swatinem/rust-cache@v2
+        run: rustup toolchain install stable --target="${{ matrix.target }}" --component="clippy,rustfmt"
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Install cross
-        uses: taiki-e/install-action@cross
+        uses: taiki-e/install-action@7769b73c2ec98c38dfcf2e18c83cfd4880c038c1 # v2.75.27
+        with:
+          tool: cross
         if: matrix.cross
       - name: Formatting
         run: cargo fmt --check
       - name: Linting
         run: cargo clippy
       - name: Build
-        run: cargo build --target=${{ matrix.target }}
+        run: cargo build --target="${{ matrix.target }}"
         if: ${{ ! matrix.cross }}
       - name: Build
-        run: cross build --target=${{ matrix.target }}
+        run: cross build --target="${{ matrix.target }}"
         if: matrix.cross
       - name: Test
-        run: cargo test --target=${{ matrix.target }}
+        run: cargo test --target="${{ matrix.target }}"
         if: ${{ ! matrix.cross }}

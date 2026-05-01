@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: © 2026 Matt Williams <matt.williams@bristol.ac.uk>
+# SPDX-License-Identifier: CC0-1.0
+
+name: Check GitHub Actions
+
+on:
+  push:
+    branches: ["master"]
+  pull_request:
+    branches: ["**"]
+
+permissions: {}
+
+jobs:
+  actionlint:
+    name: Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Download actionlint
+        run: |
+          wget "https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
+          echo "${HASH}" "actionlint_${VERSION}_linux_amd64.tar.gz" | sha256sum --check
+          tar xvf "actionlint_${VERSION}_linux_amd64.tar.gz"
+        env:
+          VERSION: "1.7.12"
+          HASH: 8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8
+      - name: Run actionlint
+        run: ./actionlint -color
+  zizmor:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write # Required for upload-sarif (used by zizmor-action) to upload SARIF files.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+      - name: Run zizmor
+        uses: zizmorcore/zizmor-action@b1d7e1fb5de872772f31590499237e7cce841e8e # v0.5.3
+        with:
+          advanced-security: true
