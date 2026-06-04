@@ -559,6 +559,32 @@ mod tests {
     }
 
     #[test]
+    fn load_public_key_reads_pub_without_private_key() -> Result<()> {
+        let dir = temp_dir();
+        let key = ssh_key::PrivateKey::random(
+            &mut ssh_key::rand_core::OsRng,
+            ssh_key::Algorithm::Ed25519,
+        )?;
+        let identity = dir.join("id_ed25519");
+
+        // Write *only* the public key; the private key is absent
+        key.public_key()
+            .write_openssh_file(&dir.join("id_ed25519.pub"))?;
+        assert!(!identity.exists());
+
+        // Pass the identity without ".pub" suffix
+        let loaded = load_public_key(&identity)?;
+        assert_eq!(loaded.key_data(), key.public_key().key_data());
+
+        // Pass the identity with ".pub" suffix
+        let identity_pub = identity.with_extension("pub");
+        let loaded = load_public_key(&identity_pub)?;
+        assert_eq!(loaded.key_data(), key.public_key().key_data());
+
+        Ok(())
+    }
+
+    #[test]
     fn test_get_cert() -> Result<()> {
         let mut server = Server::new();
         let url = server.url().parse()?;
