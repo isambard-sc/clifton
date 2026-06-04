@@ -585,6 +585,13 @@ mod tests {
     }
 
     #[test]
+    fn load_public_key_errors_when_no_key_on_disk() -> Result<()> {
+        let dir = temp_dir();
+        assert!(load_public_key(&dir.join("id_ed25519")).is_err());
+        Ok(())
+    }
+
+    #[test]
     fn test_get_cert() -> Result<()> {
         let mut server = Server::new();
         let url = server.url().parse()?;
