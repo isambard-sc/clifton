@@ -167,41 +167,7 @@ fn main() -> Result<()> {
                     .context("No identity file specified.")?,
             ))
             .context("Could not form absolute path for the identity file.")?;
-            let clifton_name = std::env::current_exe()
-                .ok()
-                .and_then(|p| p.file_name().map(|f| f.display().to_string()))
-                .unwrap_or("clifton".to_string());
-            if !identity_file.is_file() {
-                anyhow::bail!(format!(
-                    "Identity file {} not found.\nEither specify the identity file (see `{} auth --help`) or create a new key.",
-                    &identity_file.display(),
-                    clifton_name,
-                ))
-            }
-            let identity = match ssh_key::PrivateKey::read_openssh_file(&identity_file) {
-                Ok(i) => i,
-                Err(e) => {
-                    match e {
-                        ssh_key::Error::Encoding(_) | ssh_key::Error::FormatEncoding => {
-                            if identity_file.extension().is_some_and(|e| e == "pub") {
-                                anyhow::bail!(anyhow::anyhow!(e).context("Could not decode the private key. Most likely this is caused by you passing your *public* key instead of your *private* key."))
-                            } else {
-                                anyhow::bail!(anyhow::anyhow!(e).context("Could not decode the private key. Most likely this is caused by you trying to read an RSA key stored in an old format. Try generating a new key."))
-                            }
-                        }
-                        _ => anyhow::bail!(
-                            anyhow::anyhow!(e).context("Could not read SSH identity file.")
-                        ),
-                    };
-                }
-            };
-
-            if !identity.is_encrypted() {
-                eprintln!(
-                    "Warning, the SSH identity file `{}` is unencrypted.",
-                    identity_file.display()
-                );
-            }
+            let public_key = load_public_key(&identity_file)?;
 
             let site = config
                 .sites
@@ -226,7 +192,7 @@ fn main() -> Result<()> {
                     open_browser,
                     show_qr,
                 )?;
-                get_cert(&identity, &site.ca_url, token.secret())
+                get_cert(&public_key, &site.ca_url, token.secret())
                     .context("Could not fetch certificate.")
             };
             let cert = match cert {
@@ -420,9 +386,34 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+/// Load the user's public key for the given identity.
+///
+/// `identity_file` is the conventional private-key path (e.g. `~/.ssh/id_ed25519`); the
+/// public key is read from the adjacent `<identity_file>.pub`, or from `identity_file`
+/// itself if it already points at a `.pub`.
+fn load_public_key(identity_file: &std::path::Path) -> Result<ssh_key::PublicKey> {
+    // Get the path to the public key
+    let public_key_file = if identity_file.extension().is_some_and(|e| e == "pub") {
+        identity_file.to_path_buf()
+    } else {
+        let mut p = identity_file.to_path_buf().into_os_string();
+        p.push(".pub");
+        std::path::PathBuf::from(p)
+    };
+
+    ssh_key::PublicKey::read_openssh_file(&public_key_file).with_context(|| {
+        format!(
+            "Could not read public key `{}`. If you only have the private key, create the public key with: ssh-keygen -y -f {} > {}",
+            public_key_file.display(),
+            identity_file.display(),
+            public_key_file.display(),
+        )
+    })
+}
+
 /// Get a signed certificate from CA
 fn get_cert(
-    identity: &ssh_key::PrivateKey,
+    public_key: &ssh_key::PublicKey,
     api_url: &url::Url,
     token: &String,
 ) -> Result<CertificateSignResponse> {
@@ -436,7 +427,7 @@ fn get_cert(
         .build()
         .context("Could not build HTTP client.")?
         .get(format!("{api_url}sign"))
-        .query(&[("public_key", identity.public_key().to_string())])
+        .query(&[("public_key", public_key.to_string())])
         .header(reqwest::header::ACCEPT, "application/json")
         .header(reqwest::header::AUTHORIZATION, format!("Bearer {token}"))
         .send()
@@ -568,6 +559,39 @@ mod tests {
     }
 
     #[test]
+    fn load_public_key_reads_pub_without_private_key() -> Result<()> {
+        let dir = temp_dir();
+        let key = ssh_key::PrivateKey::random(
+            &mut ssh_key::rand_core::OsRng,
+            ssh_key::Algorithm::Ed25519,
+        )?;
+        let identity = dir.join("id_ed25519");
+
+        // Write *only* the public key; the private key is absent
+        key.public_key()
+            .write_openssh_file(&dir.join("id_ed25519.pub"))?;
+        assert!(!identity.exists());
+
+        // Pass the identity without ".pub" suffix
+        let loaded = load_public_key(&identity)?;
+        assert_eq!(loaded.key_data(), key.public_key().key_data());
+
+        // Pass the identity with ".pub" suffix
+        let identity_pub = identity.with_extension("pub");
+        let loaded = load_public_key(&identity_pub)?;
+        assert_eq!(loaded.key_data(), key.public_key().key_data());
+
+        Ok(())
+    }
+
+    #[test]
+    fn load_public_key_errors_when_no_key_on_disk() -> Result<()> {
+        let dir = temp_dir();
+        assert!(load_public_key(&dir.join("id_ed25519")).is_err());
+        Ok(())
+    }
+
+    #[test]
     fn test_get_cert() -> Result<()> {
         let mut server = Server::new();
         let url = server.url().parse()?;
@@ -631,8 +655,8 @@ mod tests {
             )
             .create();
 
-        let cert =
-            get_cert(&private_key, &url, &"foo".to_string()).context("Cannot call get_cert.")?;
+        let cert = get_cert(private_key.public_key(), &url, &"foo".to_string())
+            .context("Cannot call get_cert.")?;
         mock.assert();
         let cert = cert.cache("/foo/bar".into(), &temp_dir())?;
         let config = cert.ssh_config()?;
@@ -711,8 +735,8 @@ mod tests {
             )
             .create();
 
-        let cert =
-            get_cert(&private_key, &url, &"foo".to_string()).context("Cannot call get_cert.")?;
+        let cert = get_cert(private_key.public_key(), &url, &"foo".to_string())
+            .context("Cannot call get_cert.")?;
         mock.assert();
         let cert = cert.cache("/foo/bar".into(), &temp_dir())?;
         let config = cert.ssh_config()?;
@@ -776,8 +800,8 @@ mod tests {
             )
             .create();
 
-        let cert =
-            get_cert(&private_key, &url, &"foo".to_string()).context("Cannot call get_cert.")?;
+        let cert = get_cert(private_key.public_key(), &url, &"foo".to_string())
+            .context("Cannot call get_cert.")?;
         mock.assert();
         let cert = cert.cache("/foo/bar".into(), &temp_dir())?;
         let config = cert.ssh_config()?;
