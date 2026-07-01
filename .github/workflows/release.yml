@@ -57,7 +57,7 @@ jobs:
       ref: "${{ steps.get_version.outputs.version }}"
       changelog: "${{ steps.changelog.outputs.changelog }}"
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
         with:
           ref: ${{ github.ref }}  # Use ref here since we must commit on a branch
           ssh-key: ${{secrets.DEPLOY_KEY}}
@@ -131,7 +131,7 @@ jobs:
       id-token: write  # Needed to mint the OIDC token necessary to request a Sigstore signing certificate
       artifact-metadata: write  # Needed to create the artifact storage record
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v6
         with:
           persist-credentials: false
       - name: Install toolchain
