@@ -69,7 +69,7 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install stable
       - name: Install cargo-edit tool
-        uses: taiki-e/install-action@7769b73c2ec98c38dfcf2e18c83cfd4880c038c1 # v2.75.27
+        uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
         with:
           tool: cargo-edit
       - name: Update version string
@@ -137,7 +137,7 @@ jobs:
       - name: Install toolchain
         run: rustup toolchain install stable
       - name: Install cargo-sbom
-        uses: taiki-e/install-action@7769b73c2ec98c38dfcf2e18c83cfd4880c038c1 # v2.75.27
+        uses: taiki-e/install-action@ace6ebe54a6a0c86dfb5f7764b17f793b6925bc3 # v2.82.3
         with:
           tool: cargo-sbom
       - name: Generate SBOM
