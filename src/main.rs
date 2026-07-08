@@ -411,13 +411,26 @@ fn main() -> Result<()> {
         Some(Commands::Config) => {
             println!("{}", &config_file_path.display());
         }
-        None => Args::command().print_help()?,
+        None => print_getting_started(),
     }
 
     // TODO Generate known_hosts line for host certificate
     // TODO Write known_hosts line
 
     Ok(())
+}
+
+// Getting started message
+fn print_getting_started() {
+    let cmd = Args::command();
+    println!("\nTo use clifton, run `clifton auth` and follow your browser!\n");
+    println!("Usage:");
+    for sub in cmd.get_subcommands() {
+        if !sub.is_hide_set() {
+            println!("  clifton {}", sub.get_name());
+        }
+    }
+    println!("\nRun `clifton help` for detailed information on the commands.");
 }
 
 /// Get a signed certificate from CA
