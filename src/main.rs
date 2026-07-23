@@ -423,14 +423,23 @@ fn main() -> Result<()> {
 // Getting started message
 fn print_getting_started() {
     let cmd = Args::command();
-    println!("\nTo use clifton, run `clifton auth` and follow your browser!\n");
-    println!("Usage:");
+
+    println!("An SSH connection manager\n");
+    println!("To get started, run:\n");
+    println!("  clifton auth\n");
+    println!("This will open a browser window so you can log in.\n");
+    println!(
+        "In order to connect via SSH to the remote server, Clifton can generate SSH config. To get Clifton to to write this config for you, run:\n"
+    );
+    println!("  clifton ssh-config write\n");
+    println!("This will print out the SSH aliases you can use.\n");
+    println!("Available commands:");
     for sub in cmd.get_subcommands() {
         if !sub.is_hide_set() {
             println!("  clifton {}", sub.get_name());
         }
     }
-    println!("\nRun `clifton help` for detailed information on the commands.");
+    println!("\nRun `clifton help` for more details.");
 }
 
 /// Get a signed certificate from CA
