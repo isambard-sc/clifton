@@ -106,8 +106,11 @@ jobs:
         run: cargo build --target="${{ matrix.target }}"
         if: ${{ ! matrix.cross }}
       - name: Build
-        run: cross build --target="${{ matrix.target }}"
+        run: cross build -vv --target="${{ matrix.target }}"
         if: matrix.cross
+        env:
+          CROSS_DEBUG: 1
+          RUST_BACKTRACE: 1
       - name: Test
         run: cargo test --target="${{ matrix.target }}"
         if: ${{ ! matrix.cross }}
