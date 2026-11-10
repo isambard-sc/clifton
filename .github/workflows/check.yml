@@ -70,7 +70,7 @@ jobs:
             os: "ubuntu-latest"
             cross: true
           - target: "x86_64-pc-windows-gnu"
-            os: "ubuntu-24.04"
+            os: "ubuntu-latest"
             cross: true
           - target: "aarch64-apple-darwin"
             os: "macOS-latest"
