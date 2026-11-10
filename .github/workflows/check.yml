@@ -71,7 +71,7 @@ jobs:
             cross: true
           - target: "x86_64-pc-windows-gnu"
             os: "ubuntu-latest"
-            cross: true
+            cross: false
           - target: "aarch64-apple-darwin"
             os: "macOS-latest"
             cross: false
@@ -90,6 +90,11 @@ jobs:
       - name: install MUSL
         if: contains(matrix.target, 'musl')
         run: sudo apt install musl-tools
+      - name: install MinGW
+        if: contains(matrix.target, 'windows-gnu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mingw-w64
       - name: Install toolchain
         run: rustup toolchain install stable --target="${{ matrix.target }}" --component="clippy,rustfmt"
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
@@ -110,4 +115,5 @@ jobs:
         if: matrix.cross
       - name: Test
         run: cargo test --target="${{ matrix.target }}"
-        if: ${{ ! matrix.cross }}
+        # Windows binaries can't run on the Linux runner, so only build them
+        if: ${{ ! matrix.cross && ! contains(matrix.target, 'windows') }}
