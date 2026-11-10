@@ -111,19 +111,6 @@ jobs:
         env:
           CROSS_DEBUG: 1
           RUST_BACKTRACE: 1
-      - name: Debug Windows container
-        if: failure() && contains(matrix.target, 'windows')
-        run: |
-          set +e
-          IMG=ghcr.io/cross-rs/x86_64-pc-windows-gnu:0.2.5
-          echo "Entrypoint:"; docker inspect --format '{{json .Config.Entrypoint}}' $IMG
-          echo "--- with entrypoint"
-          docker run --rm --userns host --user 1001:1001 $IMG sh -c 'echo ok'; echo "exit: $?"
-          echo "--- without entrypoint"
-          docker run --rm --userns host --user 1001:1001 --entrypoint sh $IMG -c 'echo ok'; echo "exit: $?"
-          echo "--- traced entrypoint"
-          EP=$(docker inspect --format '{{index .Config.Entrypoint 0}}' $IMG)
-          docker run --rm --userns host --user 1001:1001 --entrypoint sh $IMG -x "$EP" sh -c 'echo ok'; echo "exit: $?"
       - name: Test
         run: cargo test --target="${{ matrix.target }}"
         if: ${{ ! matrix.cross }}
