@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## Unreleased
 
+### Added
+
+- Improved the CLI's getting-started output so new users are guided through the first steps more clearly.
+- Added support for configuring the SSH config file consistently across the CLI, including custom locations when writing auth config.
+- Added a FreeBSD x86_64 release build.
+
+### Changed
+
+- The new-version notice now displays longer intervals such as weeks when appropriate.
+- The Windows release ZIP now contains the executable as `clifton.exe`.
+
 ### Fixed
 
 - `clifton auth --write-config=true` now adds the `Include` line to the main SSH config file correctly (PR #168). Thanks to @D-Simona-G.
