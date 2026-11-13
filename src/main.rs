@@ -279,7 +279,9 @@ fn main() -> Result<()> {
                 AssociationsCache::Projects(projects) => projects
                     .values()
                     .filter_map(|p| {
-                        p.resources.values().filter_map(|ra| {
+                        p.resources
+                            .values()
+                            .filter_map(|ra| {
                                 ssh_key::Certificate::read_file(ra.certificate.as_path()).ok()
                             })
                             .map(|cert| cert.valid_before_time())
@@ -528,10 +530,7 @@ fn ssh_config_write(
             ))?
             .write_all(config.as_ref())
             .context("Could not write clifton SSH config file.")?;
-        println!(
-            "Wrote SSH config to {}.",
-            clifton_ssh_config_path.display()
-        );
+        println!("Wrote SSH config to {}.", clifton_ssh_config_path.display());
     }
     print_available_aliases(f)?;
 

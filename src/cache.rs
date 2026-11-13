@@ -58,10 +58,8 @@ pub fn read_file<P: AsRef<std::path::Path>>(file: P) -> Result<String> {
 pub fn delete_file<P: AsRef<std::path::Path>>(file: P) -> Result<()> {
     let cache_dir = cache_dir()?;
     let path = cache_dir.join(file);
-    std::fs::remove_file(&path).context(format!(
-        "Could not delete cache file `{}`.",
-        path.display()
-    ))
+    std::fs::remove_file(&path)
+        .context(format!("Could not delete cache file `{}`.", path.display()))
 }
 
 /// Delete the entire cache directory
