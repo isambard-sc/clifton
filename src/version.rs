@@ -37,17 +37,17 @@ pub fn check_for_new_version(url: url::Url, grace_days: i64) -> Result<()> {
         let since = {
             let days = release.since().num_days();
             match (days / 7, days % 7) {
-                (0, 1) => format!("1 day"),
-                (0, days) => format!("{} days", &days),
-                (1, _) => format!("1 week"),
-                (weeks, _) => format!("{} weeks", &weeks),
+                (0, 1) => "1 day".to_string(),
+                (0, days) => format!("{} days", days),
+                (1, _) => "1 week".to_string(),
+                (weeks, _) => format!("{} weeks", weeks),
             }
         };
         eprintln!(
             "{warning}There is a new version of Clifton available.{warning:#} \
             {} was released {} ago. \
             Visit https://clifton.readthedocs.io/stable/install/ for installation instructions.",
-            &release.version, &since
+            release.version, since
         );
         if release.version.major > version()?.major {
             eprintln!(

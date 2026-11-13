@@ -154,7 +154,7 @@ fn write_certificate(
     slug: &String,
 ) -> Result<std::path::PathBuf> {
     let cert_file_path =
-        path.join(std::ffi::OsString::from(format!("{}-cert.pub", &slug,)).as_os_str());
+        path.join(std::ffi::OsString::from(format!("{}-cert.pub", slug,)).as_os_str());
     let mut f = std::fs::OpenOptions::new();
     #[cfg(unix)]
     {
@@ -168,7 +168,7 @@ fn write_certificate(
         .open(&cert_file_path)
         .context(format!(
             "Could not open certificate file `{}` for writing.",
-            &cert_file_path.display()
+            cert_file_path.display()
         ))?
         .write_all(
             certificate
@@ -214,13 +214,13 @@ impl CertificateSignResponse {
                                                 ResourceAssociationCache {
                                                     username: format!(
                                                         "{}.{}",
-                                                        &short_name, project_id
+                                                        short_name, project_id
                                                     ),
                                                     certificate: {
                                                         let slug = format!(
                                                             "{}.{}",
-                                                            &project_id,
-                                                            &platforms
+                                                            project_id,
+                                                            platforms
                                                                 .get(resource_id)
                                                                 .context(format!(
                                                                     "Could not find resource details for `{}`",
@@ -291,8 +291,8 @@ impl CertificateSignResponse {
                                                             certificate_dir,
                                                             &format!(
                                                                 "{}.{}",
-                                                                &project_id,
-                                                                &r.resources
+                                                                project_id,
+                                                                r.resources
                                                                     .get(resource_id)
                                                                     .context(format!(
                                                                         "Could not find resource details for `{}`",
@@ -343,14 +343,14 @@ impl CertificateConfigCache {
         let project_jump_config = format!(
             "Host jump.{alias}\n\
                         \tCertificateFile \"{}\"\n",
-            &resource.certificate.display(),
+            resource.certificate.display(),
         );
         let project_config = format!(
             "Host {alias}\n\
                         \tUser {}\n\
                         \tCertificateFile \"{}\"\n",
-            &resource.username,
-            &resource.certificate.display(),
+            resource.username,
+            resource.certificate.display(),
         );
         Ok(format!("{}{}", project_jump_config, project_config))
     }
@@ -376,7 +376,7 @@ impl CertificateConfigCache {
             .sorted_by_key(|x| x.0)
             .map(|(_, c)| {
                 if let Some(proxy_jump) = &c.proxy_jump {
-                    let jump_alias = format!("jump.*.{}", &c.alias);
+                    let jump_alias = format!("jump.*.{}", c.alias);
                     let jump_config = format!(
                         "Host {jump_alias}\n\
                                 \tHostname {}\n\
@@ -390,8 +390,8 @@ impl CertificateConfigCache {
                                 \tProxyJump %r@jump.%n\n\
                                 \tIdentityFile \"{2}\"\n\
                                 \tAddKeysToAgent yes\n",
-                        &c.alias,
-                        &c.hostname,
+                        c.alias,
+                        c.hostname,
                         self.identity.display(),
                     );
                     format!("{}{}", jump_config, host_config)
@@ -402,8 +402,8 @@ impl CertificateConfigCache {
                                 \tIdentityFile \"{2}\"\n\
                                 \tAddKeysToAgent yes\n\
                             \n",
-                        &c.alias,
-                        &c.hostname,
+                        c.alias,
+                        c.hostname,
                         self.identity.display(),
                     )
                 }
