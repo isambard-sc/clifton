@@ -143,7 +143,7 @@ jobs:
       - name: Generate SBOM
         run: cargo sbom --output-format=spdx_json_2_3 > sbom.spdx.json
       - name: Fetch release artefacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: clifton-*
           merge-multiple: true
@@ -169,7 +169,7 @@ jobs:
       id-token: write  # Needed to create a token to write to Pages. Also to be removed at some point.
     steps:
       - name: Fetch release artefacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           pattern: clifton-*
           merge-multiple: true
