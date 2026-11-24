@@ -20,7 +20,7 @@ fn ensure_cache_dir() -> Result<std::path::PathBuf> {
         Ok(false) => {
             std::fs::create_dir_all(&cache_dir).context(format!(
                 "Could not create cache directory `{}`.",
-                &cache_dir.display()
+                cache_dir.display()
             ))?;
         }
         Err(err) => return Err(err).context("Cound not check for existence of cache directory."),
@@ -41,7 +41,7 @@ pub fn write_file<P: AsRef<std::path::Path>, C: AsRef<[u8]>>(file: P, contents: 
         .truncate(true)
         .create(true)
         .open(&path)
-        .context(format!("Could not open cache file `{}`.", &path.display()))?
+        .context(format!("Could not open cache file `{}`.", path.display()))?
         .write_all(contents.as_ref())
         .context("Could not write to cache.")?;
     Ok(())
@@ -58,10 +58,8 @@ pub fn read_file<P: AsRef<std::path::Path>>(file: P) -> Result<String> {
 pub fn delete_file<P: AsRef<std::path::Path>>(file: P) -> Result<()> {
     let cache_dir = cache_dir()?;
     let path = cache_dir.join(file);
-    std::fs::remove_file(&path).context(format!(
-        "Could not delete cache file `{}`.",
-        &path.display()
-    ))
+    std::fs::remove_file(&path)
+        .context(format!("Could not delete cache file `{}`.", path.display()))
 }
 
 /// Delete the entire cache directory

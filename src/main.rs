@@ -122,7 +122,7 @@ fn main() -> Result<()> {
     let config_file_path = match &args.config_file {
         Some(f) => match f.try_exists() {
             Ok(true) => shellexpand::path::tilde(f),
-            Ok(false) => anyhow::bail!(format!("Config file `{}` not found.", &f.display())),
+            Ok(false) => anyhow::bail!(format!("Config file `{}` not found.", f.display())),
             Err(err) => return Err(err).context("Could not determine if config file exists."),
         },
         None => default_config_path().into(),
@@ -141,12 +141,12 @@ fn main() -> Result<()> {
         )
         .context("Failed to check for new version of Clifton.")
         {
-            eprintln!("{:}", &e);
+            eprintln!("{:}", e);
         }
     }
 
     let site_name = config.default_site;
-    let cert_details_file_name = format!("{}.json", &site_name);
+    let cert_details_file_name = format!("{}.json", site_name);
 
     match &args.command {
         Some(Commands::Auth {
@@ -174,7 +174,7 @@ fn main() -> Result<()> {
             if !identity_file.is_file() {
                 anyhow::bail!(format!(
                     "Identity file {} not found.\nEither specify the identity file (see `{} auth --help`) or create a new key.",
-                    &identity_file.display(),
+                    identity_file.display(),
                     clifton_name,
                 ))
             }
@@ -208,7 +208,7 @@ fn main() -> Result<()> {
                 .get(&site_name)
                 .context(format!("Could not get site details for `{site_name}`."))?;
             let oidc_details: CaOidcResponse =
-                reqwest::blocking::get(format!("{}oidc", &site.ca_url))
+                reqwest::blocking::get(format!("{}oidc", site.ca_url))
                     .context("Could not get CA OIDC details.")?
                     .error_for_status()
                     .context("Could not get CA OIDC details.")?
@@ -217,7 +217,7 @@ fn main() -> Result<()> {
 
             println!(
                 "Retrieving certificate for identity `{}`.",
-                &identity_file.display()
+                identity_file.display()
             );
             let cert = {
                 let token = get_access_token(
@@ -251,21 +251,21 @@ fn main() -> Result<()> {
                             .iter()
                             .map(|(p_id, p)| {
                                 match p.name.as_str() {
-                                    "" => format!("- {}", &p_id),
-                                    name => format!(" - {} ({})", &p_id, name),
+                                    "" => format!("- {}", p_id),
+                                    name => format!(" - {} ({})", p_id, name),
                                 }
                             })
                             .collect::<Vec<_>>()
                             .join("\n");
                         println!(
                             "\n{green}Successfully authenticated as {} and downloaded SSH certificate for projects{green:#}:\n{project_name_list}",
-                            &cert_config_cache.user
+                            cert_config_cache.user
                         );
                     }
                 },
                 AssociationsCache::Resources(_resources) => println!(
                     "\n{green}Successfully authenticated as {} and downloaded SSH certificate.{green:#}",
-                    &cert_config_cache.user
+                    cert_config_cache.user
                 ),
             }
             cache::write_file(
@@ -280,8 +280,8 @@ fn main() -> Result<()> {
                     .values()
                     .filter_map(|p| {
                         p.resources
-                            .iter()
-                            .filter_map(|(_, ra)| {
+                            .values()
+                            .filter_map(|ra| {
                                 ssh_key::Certificate::read_file(ra.certificate.as_path()).ok()
                             })
                             .map(|cert| cert.valid_before_time())
@@ -312,7 +312,7 @@ fn main() -> Result<()> {
             if ssh_config != std::fs::read_to_string(&clifton_ssh_config_path).unwrap_or_default() {
                 if write_config.unwrap_or(config.write_config) {
                     ssh_config_write(
-                        &main_ssh_config_path,
+                        main_ssh_config_path,
                         &cert_config_cache.ssh_config()?,
                         cert_config_cache,
                     )?;
@@ -339,7 +339,7 @@ fn main() -> Result<()> {
                 Some(SshConfigCommands::Write { ssh_config_file }) => {
                     let main_ssh_config_path =
                         ssh_config_file.as_ref().unwrap_or(&config.ssh_config_file);
-                    ssh_config_write(&main_ssh_config_path, ssh_config, f)?;
+                    ssh_config_write(main_ssh_config_path, ssh_config, f)?;
                 }
                 None => {
                     eprintln!("Copy this configuration into your SSH config file");
@@ -391,9 +391,9 @@ fn main() -> Result<()> {
                     },
                     f.identity.display(),
                     f.identity.display(),
-                    &resource_association.username,
-                    &project,
-                    &resource.hostname,
+                    resource_association.username,
+                    project,
+                    resource.hostname,
                 );
                 if std::io::stdout().is_terminal() {
                     // OpenSSH does not seem to offer the certificate to the jump host
@@ -409,7 +409,7 @@ fn main() -> Result<()> {
         }
         Some(Commands::ClearCache) => cache::delete_all()?,
         Some(Commands::Config) => {
-            println!("{}", &config_file_path.display());
+            println!("{}", config_file_path.display());
         }
         None => print_getting_started(),
     }
@@ -504,7 +504,7 @@ fn ssh_config_write(
             .context("Could not write Include line to main SSH config file.")?;
         println!(
             "Updated {} to contain Include line.",
-            &main_ssh_config_path.display()
+            main_ssh_config_path.display()
         );
     }
 
@@ -526,14 +526,11 @@ fn ssh_config_write(
             .open(&clifton_ssh_config_path)
             .context(format!(
                 "Could not open clifton SSH config file `{}`.",
-                &clifton_ssh_config_path.display()
+                clifton_ssh_config_path.display()
             ))?
             .write_all(config.as_ref())
             .context("Could not write clifton SSH config file.")?;
-        println!(
-            "Wrote SSH config to {}.",
-            &clifton_ssh_config_path.display()
-        );
+        println!("Wrote SSH config to {}.", clifton_ssh_config_path.display());
     }
     print_available_aliases(f)?;
 
@@ -558,14 +555,14 @@ fn print_available_aliases(f: CertificateConfigCache) -> Result<()> {
                         println!(
                             " - {}.{}",
                             project_id.clone(),
-                            &f.resource(resource_id)?.alias
+                            f.resource(resource_id)?.alias
                         );
                         Ok(())
                     })
             }),
         AssociationsCache::Resources(resources) => {
             resources.keys().sorted().try_for_each(|resource_id| {
-                println!(" - {}", &f.resource(resource_id)?.alias);
+                println!(" - {}", f.resource(resource_id)?.alias);
                 Ok(())
             })
         }
